@@ -1,0 +1,157 @@
+export type Role = "BUYER" | "SELLER" | "ADMIN";
+
+export type KycStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+
+export type ListingStatus =
+  | "DRAFT"
+  | "ACTIVE"
+  | "PAUSED"
+  | "SOLD"
+  | "REMOVED";
+
+export type ListingModel = "NORMAL" | "DYNAMIC" | "SERVICE";
+
+export type ListingProductType =
+  | "CONTA"
+  | "ITEM"
+  | "SERVICO"
+  | "GOLD"
+  | "OUTROS";
+
+export type ListingOffer = {
+  id: string;
+  title: string;
+  priceCents: number;
+  stockQuantity: number;
+  sortOrder: number;
+};
+
+export type User = {
+  id: string;
+  email: string;
+  name: string | null;
+  avatarUrl: string | null;
+  role: Role;
+  kycStatus: KycStatus;
+  pixKey?: string | null;
+  createdAt: string;
+  accounts?: Array<{ provider: string; createdAt: string }>;
+};
+
+export type AuthResponse = {
+  user: User;
+  accessToken: string;
+};
+
+export type AuthProviders = {
+  providers: {
+    email: boolean;
+    google: boolean;
+    discord: boolean;
+  };
+};
+
+export type Category = {
+  id: string;
+  parentId: string | null;
+  externalId: number | null;
+  name: string;
+  slug: string;
+  slugPath: string;
+  status: "active" | "inactive";
+  orderInstruction: string;
+  showInMenu: boolean;
+  acceleratedRelease: boolean;
+  interventionDeadlines: Record<string, number> | null;
+  isFeatured: boolean;
+  isAdult: boolean;
+  imageUrl: string | null;
+  iconUrl: string | null;
+  hasWebp: boolean;
+  templateDescription: string | null;
+  balanceReleaseDays: number;
+  keywords: string | null;
+  descriptionSeo: string | null;
+  titleSeo: string | null;
+  subtitleSeo: string | null;
+  slugSeo: string | null;
+  defaultOrderBy: string;
+  childrenExternalIds: string | null;
+  requiredUserValidation: boolean;
+  isNoindex: boolean | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  children?: Category[];
+  parent?: {
+    id: string;
+    slug: string;
+    name: string;
+    slugPath?: string;
+    imageUrl?: string | null;
+    iconUrl?: string | null;
+  } | null;
+};
+
+export type MediaAsset = {
+  id: string;
+  url: string;
+  mimeType: string;
+  sizeBytes: number;
+  width: number | null;
+  height: number | null;
+  purpose: "GENERAL" | "LISTING" | "AVATAR" | "CATEGORY";
+  visibility: "PUBLIC" | "PRIVATE";
+  originalName: string | null;
+  createdAt: string;
+};
+
+export type ListingCategoryRef = {
+  id: string;
+  slug: string;
+  name: string;
+  imageUrl?: string | null;
+  iconUrl?: string | null;
+  slugPath?: string;
+  parent?: {
+    id: string;
+    slug: string;
+    name: string;
+    imageUrl?: string | null;
+    iconUrl?: string | null;
+    slugPath?: string;
+  } | null;
+};
+
+export type ListingSummary = {
+  id: string;
+  title: string;
+  priceCents: number;
+  status: ListingStatus;
+  createdAt: string;
+  category: ListingCategoryRef;
+  media: Array<{ url: string }>;
+  seller: { id: string; name: string | null };
+};
+
+export type ListingDetail = {
+  id: string;
+  title: string;
+  description: string;
+  priceCents: number;
+  stockQuantity: number;
+  productType: ListingProductType | null;
+  listingModel: ListingModel;
+  status: ListingStatus;
+  createdAt: string;
+  updatedAt: string;
+  category: ListingCategoryRef;
+  media: Array<{ id: string; url: string; sortOrder: number }>;
+  offers?: ListingOffer[];
+  seller: { id: string; name: string | null };
+};
+
+export type CatalogListingsResponse = {
+  listings: ListingSummary[];
+  nextCursor: string | null;
+};

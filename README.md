@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Elloot App
 
-## Getting Started
+Frontend do marketplace [Elloot](https://github.com/faite-push/elloot-app) — Next.js 16, Tailwind v4, shadcn.
 
-First, run the development server:
+API irmã: [`elloot-api`](https://github.com/faite-push/elloot-api).
+
+## Requisitos
+
+- Node.js 20+
+- API local em `http://localhost:5000` (ou a URL do seu `.env.local`)
+
+## Setup
 
 ```bash
+git clone https://github.com/faite-push/elloot-app.git
+cd elloot-app
+npm install
+cp .env.example .env.local
+# NEXT_PUBLIC_API_URL=http://localhost:5000
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Comando | Uso |
+|---------|-----|
+| `npm run dev` | Dev server |
+| `npm run build` | Build de produção |
+| `npm run start` | Serve o build |
+| `npm run lint` | ESLint |
 
-## Learn More
+## Estrutura
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+  app/              # Rotas (páginas finas)
+    (marketing)/    # Home /
+    (main)/         # market, sell, listings, orders…
+    (auth)/         # login, register, callback
+  components/       # UI + layout
+  features/         # Domínio de UI + client API
+  lib/              # api client, routes, config
+  types/api.ts      # Tipos alinhados à API
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Cada pasta em `src/features/*/index.ts` tem **STATUS** e “onde mexer”.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Rotas canônicas
 
-## Deploy on Vercel
+Definidas em [`src/lib/routes.ts`](./src/lib/routes.ts):
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Mercado: `/market` (`?category=slug`)
+- Anunciar: `/sell` (wizard Produto → Ofertas → Imagens → Revisar)
+- Anúncio: `/listings/[id]`
+- Pedidos: `/orders`, `/orders/[id]`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Convenções
+
+1. Página em `app/` só monta layout + feature — lógica fica em `features/`.
+2. Paths públicos em inglês; textos da UI em português.
+3. Não commitar `.env.local` — use `.env.example`.
+
+## Licença
+
+Privado / uso do time Elloot.
