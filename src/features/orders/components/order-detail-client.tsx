@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2Icon,
+  MessageSquareIcon,
   PackageIcon,
   ShieldCheckIcon,
   WalletIcon,
@@ -26,6 +27,8 @@ import { ApiError } from "@/lib/api/errors";
 import { formatBRLFromCents } from "@/lib/format";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
+import { OrderDisputePanel } from "@/features/disputes/components/order-dispute-panel";
+import { OrderDetailSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -103,9 +106,7 @@ export function OrderDetailClient({ orderId }: Props) {
   }
 
   if (loading) {
-    return (
-      <p className="text-sm text-muted-foreground">Carregando pedido…</p>
-    );
+    return <OrderDetailSkeleton />;
   }
 
   if (!order) {
@@ -157,6 +158,11 @@ export function OrderDetailClient({ orderId }: Props) {
             <p className="font-heading text-lg font-semibold tabular-nums">
               {formatBRLFromCents(order.amountCents)}
             </p>
+            {order.offer ? (
+              <p className="text-sm text-muted-foreground">
+                Oferta: {order.offer.title}
+              </p>
+            ) : null}
             <p className="text-xs text-muted-foreground">
               Taxa da plataforma: {formatBRLFromCents(order.feeCents)}
             </p>
@@ -311,12 +317,42 @@ export function OrderDetailClient({ orderId }: Props) {
           </div>
         ) : null}
 
+        <OrderDisputePanel
+          order={order}
+          canOpen={
+            (isBuyer || isSeller) &&
+            (order.status === "PAID" || order.status === "DELIVERED")
+          }
+          disabled={actionPending}
+          onOpened={async () => {
+            setMessage("Disputa aberta. O escrow permanece retido.");
+            await refresh();
+          }}
+        />
+
         {order.status === "COMPLETED" ? (
           <div className="flex items-start gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-800 dark:text-emerald-300">
             <ShieldCheckIcon className="mt-0.5 size-4 shrink-0" />
             <p>Pedido concluído com sucesso. O valor foi liberado ao vendedor.</p>
           </div>
         ) : null}
+
+        {order.conversation?.id ? (
+          <Link
+            href={routes.conversation(order.conversation.id)}
+            className={cn(
+              buttonVariants({ variant: "secondary" }),
+              "w-full justify-center gap-2 rounded-xl",
+            )}
+          >
+            <MessageSquareIcon className="size-4" />
+            Abrir chat
+          </Link>
+        ) : (
+          <p className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-center text-xs text-muted-foreground">
+            O chat fica disponível após o pagamento do pedido.
+          </p>
+        )}
 
         <Link
           href={routes.orders}

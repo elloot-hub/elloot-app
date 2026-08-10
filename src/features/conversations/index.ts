@@ -1,14 +1,16 @@
 /**
- * Conversations feature — chat do pedido (escrow delivery).
+ * Conversations feature — chat do pedido (escrow / entrega).
  *
- * STATUS: planejado (API já existe em elloot-api `/api/conversations`)
- *
- * Quando implementar, criar aqui:
- * - `api.ts` — listar/enviar mensagens
- * - `components/order-chat.tsx` — UI no detalhe do pedido
- *
- * Não coloque lógica de chat em `features/orders` — orders orquestra o fluxo;
- * conversation é o canal de entrega.
+ * STATUS: inbox + thread com Socket.IO (fallback REST).
  */
 
-export {};
+export {
+  fetchConversations,
+  fetchConversation,
+  fetchConversationByOrder,
+  fetchConversationMessages,
+  sendConversationMessage,
+} from "./api";
+export type { ConversationSummary, ConversationMessage } from "./api";
+export { ConversationsListClient } from "./components/conversations-list-client";
+export { ConversationThreadClient } from "./components/conversation-thread-client";

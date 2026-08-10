@@ -5,8 +5,11 @@ import type {
   SandboxCheckout,
 } from "@/features/orders/types";
 
-export async function createOrder(listingId: string) {
-  return api.post<CreateOrderResponse>("/api/orders", { listingId });
+export async function createOrder(listingId: string, offerId?: string) {
+  return api.post<CreateOrderResponse>("/api/orders", {
+    listingId,
+    ...(offerId ? { offerId } : {}),
+  });
 }
 
 export async function fetchMyOrders() {

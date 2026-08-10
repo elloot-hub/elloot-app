@@ -1,5 +1,9 @@
 import { api } from "@/lib/api/client";
-import type { CatalogListingsResponse, Category } from "@/types/api";
+import type {
+  CatalogListingsResponse,
+  Category,
+  ListingProductType,
+} from "@/types/api";
 
 export type CatalogListingsQuery = {
   category?: string;
@@ -12,6 +16,11 @@ export type CatalogListingsQuery = {
   maxPriceCents?: number;
 };
 
+export type ProductTypeOption = {
+  value: ListingProductType | string;
+  label: string;
+};
+
 const emptyCategories = {
   success: true as const,
   categories: [] as Category[],
@@ -20,6 +29,11 @@ const emptyCategories = {
 const emptyListings: CatalogListingsResponse = {
   listings: [],
   nextCursor: null,
+};
+
+const emptyProductTypes = {
+  success: true as const,
+  productTypes: [] as ProductTypeOption[],
 };
 
 async function safeCatalog<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
@@ -70,6 +84,34 @@ export async function fetchCategoriesFlat(query?: {
         },
       ),
     emptyCategories,
+  );
+}
+
+/**
+ * Mid-level listing taxonomy for /sell:
+ * 1) Categoria (Jogos, Redes Sociais, IA…)
+ * 2) Categoria principal (Free Fire, Instagram…)
+ * 3) Subcategoria (Contas, Diamantes…) quando houver
+ */
+export async function fetchListingCategories(_query?: { children?: boolean }) {
+  return safeCatalog(
+    () =>
+      api.get<{ success: boolean; categories: Category[] }>(
+        "/api/catalog/categories/listing",
+        { auth: false },
+      ),
+    emptyCategories,
+  );
+}
+
+export async function fetchProductTypes() {
+  return safeCatalog(
+    () =>
+      api.get<{ success: boolean; productTypes: ProductTypeOption[] }>(
+        "/api/catalog/product-types",
+        { auth: false },
+      ),
+    emptyProductTypes,
   );
 }
 

@@ -11,18 +11,10 @@ type Props = {
   fadeBottom?: boolean;
   viewAllHref?: string;
   viewAllLabel?: string;
-  /** Hide items after this index on mobile (< md). Default: 6. */
   mobileLimit?: number;
 };
 
-export function CategoryGrid({
-  categories,
-  className,
-  fadeBottom = false,
-  viewAllHref = routes.market,
-  viewAllLabel = "Ver todas categorias",
-  mobileLimit = HOME_GRID_MOBILE_LIMIT,
-}: Props) {
+export function CategoryGrid({ categories, className, fadeBottom = false, viewAllHref = routes.market, viewAllLabel = "Ver todas categorias", mobileLimit = HOME_GRID_MOBILE_LIMIT, }: Props) {
   if (categories.length === 0) {
     return (
       <p className="py-10 text-center text-sm text-muted-foreground">
@@ -70,6 +62,7 @@ export function CategoryGrid({
                     style={{ background: visual.gradient }}
                   />
                 )}
+
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,white/18,transparent_45%)]" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
@@ -93,17 +86,17 @@ export function CategoryGrid({
         </div>
 
         {fadeBottom ? (
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 w-full h-[32%] md:h-[52%]">
+          <div aria-hidden className="pointer-events-none select-none absolute inset-x-0 bottom-0 w-full h-[32%] md:h-[40%]">
             <div
               className="absolute inset-0 backdrop-blur-sm sm:backdrop-blur-sm"
               style={{
                 maskImage:
-                  "linear-gradient(to bottom, transparent 0%, black 38%, black 100%)",
+                  "linear-gradient(to bottom, transparent 0%, black 28%, black 100%)",
                 WebkitMaskImage:
-                  "linear-gradient(to bottom, transparent 0%, black 38%, black 100%)",
+                  "linear-gradient(to bottom, transparent 0%, black 28%, black 100%)",
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent from-0% via-background via-[75%] to-background to-[100%]" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent from-10% via-background/90 via-[80%] to-background to-[100%]" />
           </div>
         ) : null}
       </div>

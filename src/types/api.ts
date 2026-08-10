@@ -11,6 +11,8 @@ export type ListingStatus =
 
 export type ListingModel = "NORMAL" | "DYNAMIC" | "SERVICE";
 
+export type DeliveryMode = "MANUAL" | "AUTO";
+
 export type ListingProductType =
   | "CONTA"
   | "ITEM"
@@ -23,6 +25,7 @@ export type ListingOffer = {
   title: string;
   priceCents: number;
   stockQuantity: number;
+  deliveryMode?: DeliveryMode;
   sortOrder: number;
 };
 
@@ -123,15 +126,44 @@ export type ListingCategoryRef = {
   } | null;
 };
 
+export type SellerPublic = {
+  id: string;
+  name: string | null;
+  avatarUrl?: string | null;
+  createdAt?: string;
+  lastSeenAt?: string | null;
+  isOnline?: boolean;
+  reputationScore?: number;
+  kycStatus?: KycStatus;
+  verifications?: {
+    email: boolean;
+    phone: boolean;
+    documents: boolean;
+  };
+  stats?: {
+    ratingCount: number;
+    ratingAvg: number | null;
+    positiveCount: number;
+    neutralCount: number;
+    negativeCount: number;
+    positivePercent: number | null;
+  };
+};
+
 export type ListingSummary = {
   id: string;
   title: string;
   priceCents: number;
   status: ListingStatus;
+  listingModel?: ListingModel;
+  deliveryMode?: DeliveryMode;
+  productType?: ListingProductType | null;
   createdAt: string;
   category: ListingCategoryRef;
   media: Array<{ url: string }>;
-  seller: { id: string; name: string | null };
+  /** Total de imagens do anúncio (pode ser > media.length no card). */
+  mediaCount?: number;
+  seller: SellerPublic;
 };
 
 export type ListingDetail = {
@@ -140,15 +172,18 @@ export type ListingDetail = {
   description: string;
   priceCents: number;
   stockQuantity: number;
+  unitsSold?: number;
+  salesCount?: number;
   productType: ListingProductType | null;
   listingModel: ListingModel;
+  deliveryMode?: DeliveryMode;
   status: ListingStatus;
   createdAt: string;
   updatedAt: string;
   category: ListingCategoryRef;
   media: Array<{ id: string; url: string; sortOrder: number }>;
   offers?: ListingOffer[];
-  seller: { id: string; name: string | null };
+  seller: SellerPublic;
 };
 
 export type CatalogListingsResponse = {

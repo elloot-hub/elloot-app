@@ -5,14 +5,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CategoryGrid } from "@/features/catalog/components/category-grid";
 import { ListingCard } from "@/features/catalog/components/listing-card";
-import {
-  fetchBrowseCategories,
-  fetchCatalogListings,
-} from "@/features/catalog/api";
-import {
-  HOME_GRID_DESKTOP_LIMIT,
-  pickHomeGridCategories,
-} from "@/features/catalog/home-categories";
+import { fetchBrowseCategories, fetchCatalogListings, } from "@/features/catalog/api";
+import { HOME_GRID_DESKTOP_LIMIT, pickHomeGridCategories, } from "@/features/catalog/home-categories";
 import { HomeHero } from "@/features/marketing/components/home-hero";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -23,14 +17,8 @@ export default async function HomePage() {
     fetchCatalogListings({ limit: 8 }),
   ]);
 
-  const gridCategories = pickHomeGridCategories(
-    categories,
-    HOME_GRID_DESKTOP_LIMIT,
-  );
-  const carouselCategories =
-    categories.filter((c) => c.showInMenu || c.isFeatured).length > 0
-      ? categories.filter((c) => c.showInMenu || c.isFeatured)
-      : categories.slice(0, 24);
+  const gridCategories = pickHomeGridCategories(categories, HOME_GRID_DESKTOP_LIMIT,);
+  const carouselCategories = categories.filter((c) => c.showInMenu || c.isFeatured).length > 0 ? categories.filter((c) => c.showInMenu || c.isFeatured) : categories.slice(0, 24);
 
   return (
     <>
@@ -57,27 +45,30 @@ export default async function HomePage() {
         </Container>
       </section>
 
-      <section className="border-t border-border/50 py-12 sm:py-16">
-        <Container className="space-y-8">
-          <div className="flex items-end justify-between gap-4">
+      <section className="py-8">
+        <Container className="space-y-4">
+          <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <h2 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
-                Anúncios recentes
+              <Badge>
+                <p className="animate-rise font-heading tracking-wide">
+                  Anúncios recentes
+                </p>
+              </Badge>
+              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                Anúncios recentes no Mercado
               </h2>
-              <p className="text-sm text-muted-foreground">
-                Ofertas ativas protegidas por escrow.
-              </p>
             </div>
             <Link
               href={routes.market}
               className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
+                buttonVariants({ variant: "default", size: "sm" }),
                 "rounded-full",
               )}
             >
               Abrir mercado
             </Link>
           </div>
+
           {catalog.listings.length === 0 ? (
             <div className="surface-panel px-6 py-16 text-center">
               <p className="text-sm text-muted-foreground">
@@ -94,7 +85,7 @@ export default async function HomePage() {
               </Link>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-5">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               {catalog.listings.map((listing) => (
                 <ListingCard key={listing.id} listing={listing} />
               ))}
@@ -103,7 +94,7 @@ export default async function HomePage() {
         </Container>
       </section>
 
-      <section className="border-t border-border/50 bg-muted/20 py-14 sm:py-16">
+      <section className="bg-muted/20 py-14 sm:py-16">
         <Container className="space-y-10">
           <div className="mx-auto max-w-2xl space-y-2 text-center">
             <h2 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">

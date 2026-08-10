@@ -15,7 +15,15 @@
  * Rota canônica do mercado: `/market` (não `/marketplace`).
  */
 
-export { fetchBrowseCategories, fetchCatalogListings, fetchCategories, fetchCategoriesFlat } from "./api";
+export {
+  fetchBrowseCategories,
+  fetchCatalogListings,
+  fetchCategories,
+  fetchCategoriesFlat,
+  fetchListingCategories,
+  fetchProductTypes,
+} from "./api";
+export type { ProductTypeOption } from "./api";
 export { CategoryGrid } from "./components/category-grid";
 export { CategoryChips } from "./components/category-chips";
 export { CategoryCarousel } from "./components/category-carousel";

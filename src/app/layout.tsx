@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { DM_Sans, Geist_Mono, Sora } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/features/auth/context";
+import { FavoritesProvider } from "@/features/favorites";
+import { NotificationsProvider } from "@/features/notifications";
+import { RealtimeProvider } from "@/features/realtime";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 
@@ -26,7 +30,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: {
     default: "Elloot - Compre com segurança e praticidade",
-    template: "%s · Elloot",
+    template: "%s - Elloot - Compre com segurança e praticidade",
   },
   description:
     "Compre e venda contas e itens digitais com escrow. Pagamento seguro até a entrega.",
@@ -56,7 +60,15 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>{children}</AuthProvider>
+          <TooltipProvider delay={200}>
+            <AuthProvider>
+              <RealtimeProvider>
+                <NotificationsProvider>
+                  <FavoritesProvider>{children}</FavoritesProvider>
+                </NotificationsProvider>
+              </RealtimeProvider>
+            </AuthProvider>
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -2,17 +2,30 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeftIcon, ImagePlusIcon, LayersIcon, Loader2Icon, PackageIcon, PlusIcon, StarIcon, Trash2Icon, XIcon, } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type KeyboardEvent,
+  type ChangeEvent,
+} from "react";
+import { CheckIcon, ChevronRightIcon, ImagePlusIcon, LayersIcon, Loader2Icon, PackageIcon, PlusCircle, StarIcon, Trash2Icon, XIcon, } from "lucide-react";
 
 import { Container } from "@/components/layout/container";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel, } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
+import { Toggle } from "@/components/ui/toggle";
 import { useAuth } from "@/features/auth/context";
-import { fetchCategories } from "@/features/catalog/api";
+import {
+  fetchListingCategories,
+  fetchProductTypes,
+  type ProductTypeOption,
+} from "@/features/catalog/api";
 import { createListing } from "@/features/listings/api";
 import { SellStepper, type SellStepId, } from "@/features/listings/components/sell-stepper";
 import { uploadMedia } from "@/features/media/api";
@@ -22,20 +35,82 @@ import { cn } from "@/lib/utils";
 import type { Category, ListingProductType } from "@/types/api";
 
 const MAX_MEDIA = 5;
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_TITLE = 80;
 const MAX_DESC = 5000;
 const MIN_PRICE_CENTS = 150;
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const LEVEL_LABELS = ["Categoria", "Subcategoria", "Seção", "Tipo", "Detalhe"];
-
-const PRODUCT_TYPES: Array<{ value: ListingProductType; label: string }> = [
-  { value: "SERVICO", label: "Serviço" },
-  { value: "CONTA", label: "Conta" },
-  { value: "GOLD", label: "Gold" },
-  { value: "ITEM", label: "Item" },
-  { value: "OUTROS", label: "Outros" },
+const LEVEL_LABELS = [
+  "Categoria",
+  "Categoria principal",
+  "Subcategoria",
 ];
+
+const LEVEL_DESCRIPTIONS = [
+  "Escolha o segmento do anúncio: jogos, assinaturas, redes sociais, IA e afins.",
+  "Selecione o jogo, plataforma ou produto específico dentro da categoria.",
+  "Classifique o anúncio (contas, itens, diamantes, serviços…). Isso já define o tipo.",
+];
+
+function normalizeKey(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase();
+}
+
+function inferProductType(
+  category: Category | null,
+): ListingProductType | null {
+  if (!category) return null;
+  const key = normalizeKey(`${category.slug} ${category.name}`);
+
+  if (key.includes("conta") || key.includes("account") || key.includes("login")) {
+    return "CONTA";
+  }
+  if (
+    key.includes("gold") ||
+    key.includes("diamante") ||
+    key.includes("moeda") ||
+    key.includes("coin") ||
+    key.includes("robux") ||
+    key.includes("v-buck") ||
+    key.includes("vbuck") ||
+    key.includes("crystal") ||
+    key.includes("gems") ||
+    key.includes("gemas") ||
+    /(^|[^a-z])uc([^a-z]|$)/.test(key) ||
+    key.includes("riot point") ||
+    key.includes("cp ") ||
+    key.includes("cash")
+  ) {
+    return "GOLD";
+  }
+  if (
+    key.includes("servico") ||
+    key.includes("boost") ||
+    key.includes("coaching") ||
+    key.includes("elo") ||
+    key.includes("farm") ||
+    key.includes("ranking")
+  ) {
+    return "SERVICO";
+  }
+  if (
+    key.includes("item") ||
+    key.includes("skin") ||
+    key.includes("chave") ||
+    key.includes("key") ||
+    key.includes("gift") ||
+    key.includes("passe")
+  ) {
+    return "ITEM";
+  }
+  if (key === "outros" || key.endsWith(" outros") || key.includes("/outros")) {
+    return "OUTROS";
+  }
+  return null;
+}
 
 const REACH_PLANS = [
   {
@@ -45,23 +120,23 @@ const REACH_PLANS = [
     description: "Aparece nas listagens padrão da categoria.",
   },
   {
-    id: "mid" as const,
-    title: "Alcance médio",
-    fee: "8% por venda",
-    description: "Mais relevância em buscas e filtros.",
-  },
-  {
     id: "max" as const,
     title: "Alcance máximo",
     fee: "12% por venda",
     description: "Prioridade no ranking e destaque visual.",
     recommended: true,
   },
+  {
+    id: "mid" as const,
+    title: "Alcance médio",
+    fee: "8% por venda",
+    description: "Mais relevância em buscas e filtros.",
+  },
 ];
 
 type ReachId = (typeof REACH_PLANS)[number]["id"];
 type DeliveryMode = "manual" | "auto";
-type AdKind = "simple" | "composite";
+type AdKind = "simple" | "dynamic";
 
 type PendingImage = {
   id: string;
@@ -80,14 +155,23 @@ type OfferDraft = {
 };
 
 function parsePriceToCents(raw: string): number | null {
-  const cleaned = raw.trim().replace(/\s/g, "").replace(",", ".");
-  if (!cleaned) return null;
-  if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return null;
-  const reais = Number(cleaned);
-  if (!Number.isFinite(reais) || reais <= 0) return null;
-  const cents = Math.round(reais * 100);
-  if (cents < MIN_PRICE_CENTS || cents > 50_000_000) return null;
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return null;
+  const cents = Number(digits);
+  if (!Number.isInteger(cents) || cents < MIN_PRICE_CENTS || cents > 50_000_000) {
+    return null;
+  }
   return cents;
+}
+
+function formatPriceMask(raw: string): string {
+  const digits = raw.replace(/\D/g, "").replace(/^0+(?=\d)/, "").slice(0, 10);
+  if (!digits) return "";
+  const cents = Number(digits);
+  return (cents / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function formatBrl(cents: number) {
@@ -97,6 +181,139 @@ function formatBrl(cents: number) {
   });
 }
 
+function PriceInput({
+  value,
+  onChange,
+  id,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  id?: string;
+  className?: string;
+}) {
+  const cents = value ? Number(value.replace(/\D/g, "")) || 0 : 0;
+  const belowMin = value.length > 0 && cents < MIN_PRICE_CENTS;
+
+  return (
+    <div className={cn("space-y-1.5", className)}>
+      <div
+        className={cn(
+          "flex h-11 items-center overflow-hidden rounded-md border bg-transparent transition-colors",
+          "border-input dark:bg-input/30",
+          "focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50",
+          belowMin && "border-destructive/60",
+        )}
+      >
+        <span className="shrink-0 pl-3 text-sm text-muted-foreground select-none">
+          R$
+        </span>
+        <input
+          id={id}
+          value={value}
+          onChange={(e) => onChange(formatPriceMask(e.target.value))}
+          placeholder="0,00"
+          inputMode="numeric"
+          aria-invalid={belowMin || undefined}
+          className="h-full min-w-0 flex-1 bg-transparent px-2 text-sm outline-none placeholder:text-muted-foreground tabular-nums"
+        />
+      </div>
+      {belowMin ? (
+        <p className="text-xs text-destructive">
+          Mínimo {formatBrl(MIN_PRICE_CENTS)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Remove linhas vazias; mantém no máx. um \\n final para digitar a próxima unidade. */
+function sanitizeAutoStock(raw: string): string {
+  const endsWithBreak = /\n$/.test(raw);
+  const filled = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  if (filled.length === 0) return "";
+  return endsWithBreak ? `${filled.join("\n")}\n` : filled.join("\n");
+}
+
+function NumberedStockTextarea({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const lineCount = Math.max(value.split("\n").length, 1);
+  const gutterRef = useRef<HTMLDivElement>(null);
+  const areaRef = useRef<HTMLTextAreaElement>(null);
+
+  function syncScroll() {
+    if (gutterRef.current && areaRef.current) {
+      gutterRef.current.scrollTop = areaRef.current.scrollTop;
+    }
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key !== "Enter") return;
+    const el = e.currentTarget;
+    const { selectionStart, selectionEnd, value: raw } = el;
+    if (selectionStart !== selectionEnd) return;
+
+    const lineStart = raw.lastIndexOf("\n", selectionStart - 1) + 1;
+    const lineEndIdx = raw.indexOf("\n", selectionStart);
+    const lineEnd = lineEndIdx === -1 ? raw.length : lineEndIdx;
+    const currentLine = raw.slice(lineStart, lineEnd);
+
+    if (!currentLine.trim()) {
+      e.preventDefault();
+    }
+  }
+
+  function handleChange(e: ChangeEvent<HTMLTextAreaElement>) {
+    onChange(sanitizeAutoStock(e.target.value));
+  }
+
+  function handlePaste(e: ClipboardEvent<HTMLTextAreaElement>) {
+    e.preventDefault();
+    const el = e.currentTarget;
+    const pasted = e.clipboardData.getData("text");
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const next = sanitizeAutoStock(
+      el.value.slice(0, start) + pasted + el.value.slice(end),
+    );
+    onChange(next);
+  }
+
+  return (
+    <div className="flex max-h-48 min-h-36 overflow-hidden rounded-md border border-input dark:bg-input/30">
+      <div
+        ref={gutterRef}
+        aria-hidden
+        className="shrink-0 overflow-hidden border-r border-border/60 bg-muted/20 py-2.5 pr-2 pl-3 text-right font-mono text-xs leading-6 text-muted-foreground select-none"
+      >
+        {Array.from({ length: lineCount }, (_, i) => (
+          <div key={i} className="h-6">
+            {i + 1}
+          </div>
+        ))}
+      </div>
+      <textarea
+        ref={areaRef}
+        value={value}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
+        onScroll={syncScroll}
+        placeholder={placeholder}
+        spellCheck={false}
+        className="min-h-36 max-h-48 w-full flex-1 resize-none overflow-y-auto bg-transparent py-2.5 pr-3 pl-2 font-mono text-sm leading-6 outline-none placeholder:text-muted-foreground"
+      />
+    </div>
+  );
+}
+
 function findNode(nodes: Category[], id: string): Category | null {
   for (const node of nodes) {
     if (node.id === id) return node;
@@ -104,13 +321,6 @@ function findNode(nodes: Category[], id: string): Category | null {
     if (nested) return nested;
   }
   return null;
-}
-
-function optionsAtLevel(tree: Category[], path: string[], level: number) {
-  if (level === 0) return tree;
-  const parentId = path[level - 1];
-  if (!parentId) return [];
-  return findNode(tree, parentId)?.children ?? [];
 }
 
 function countAutoLines(value: string) {
@@ -163,6 +373,7 @@ export function SellPageContent() {
 
   const [tree, setTree] = useState<Category[]>([]);
   const [treeLoading, setTreeLoading] = useState(true);
+  const [productTypes, setProductTypes] = useState<ProductTypeOption[]>([]);
   const [images, setImages] = useState<PendingImage[]>([]);
   const [coverId, setCoverId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -173,9 +384,14 @@ export function SellPageContent() {
   useEffect(() => {
     let cancelled = false;
     setTreeLoading(true);
-    void fetchCategories()
-      .then((res) => {
-        if (!cancelled) setTree(res.categories);
+    void Promise.all([
+      fetchListingCategories({ children: true }),
+      fetchProductTypes(),
+    ])
+      .then(([cats, types]) => {
+        if (cancelled) return;
+        setTree(cats.categories);
+        setProductTypes(types.productTypes);
       })
       .finally(() => {
         if (!cancelled) setTreeLoading(false);
@@ -203,17 +419,100 @@ export function SellPageContent() {
     [categoryPath, tree],
   );
 
+  const categoryCrumbs = useMemo(
+    () =>
+      categoryPath
+        .map((id) => {
+          const node = findNode(tree, id);
+          if (!node) return null;
+          return {
+            id: node.id,
+            name: node.name,
+            iconUrl: node.iconUrl || node.imageUrl,
+          };
+        })
+        .filter(
+          (c): c is { id: string; name: string; iconUrl: string | null } =>
+            Boolean(c),
+        ),
+    [categoryPath, tree],
+  );
+
   const cascadeLevels = useMemo(() => {
-    const levels: Array<{ level: number; options: Category[] }> = [
-      { level: 0, options: tree },
-    ];
-    for (let i = 0; i < categoryPath.length; i++) {
-      const children = optionsAtLevel(tree, categoryPath, i + 1);
-      if (!children.length) break;
-      levels.push({ level: i + 1, options: children });
-    }
+    // Unlock: só o 1º select no início; os próximos aparecem após cada escolha.
+    const levels: Array<{
+      level: number;
+      label: string;
+      options: Category[];
+    }> = [];
+
+    // 1) Categoria (Jogos, Redes Sociais, IA, Assinaturas…)
+    levels.push({
+      level: 0,
+      label: LEVEL_LABELS[0]!,
+      options: tree,
+    });
+
+    if (!categoryPath[0]) return levels;
+
+    const l1 = findNode(tree, categoryPath[0]);
+    const l2Options = l1?.children ?? [];
+    if (!l2Options.length) return levels;
+
+    // 2) Categoria principal (Free Fire, Instagram…)
+    levels.push({
+      level: 1,
+      label: LEVEL_LABELS[1]!,
+      options: l2Options,
+    });
+
+    if (!categoryPath[1]) return levels;
+
+    const l2 = findNode(tree, categoryPath[1]);
+    const l3Options = l2?.children ?? [];
+    if (!l3Options.length) return levels;
+
+    // 3) Subcategoria (Contas, Diamantes…)
+    levels.push({
+      level: 2,
+      label: LEVEL_LABELS[2]!,
+      options: l3Options,
+    });
+
     return levels;
   }, [tree, categoryPath]);
+
+  const selectedCategory = useMemo(
+    () => (selectedCategoryId ? findNode(tree, selectedCategoryId) : null),
+    [tree, selectedCategoryId],
+  );
+
+  const categoryIsLeaf = Boolean(
+    selectedCategoryId &&
+    selectedCategory &&
+    !(selectedCategory.children?.length),
+  );
+
+  const inferredProductType = useMemo(
+    () => (categoryIsLeaf ? inferProductType(selectedCategory) : null),
+    [categoryIsLeaf, selectedCategory],
+  );
+
+  const needsProductTypePick = categoryIsLeaf && !inferredProductType;
+
+  useEffect(() => {
+    if (!categoryIsLeaf) {
+      setProductType("");
+      return;
+    }
+    if (inferredProductType) {
+      setProductType(inferredProductType);
+      return;
+    }
+    setProductType("");
+  }, [categoryIsLeaf, inferredProductType, selectedCategoryId]);
+
+  const priceCents = parsePriceToCents(price);
 
   function goTo(next: SellStepId) {
     setError(null);
@@ -233,15 +532,18 @@ export function SellPageContent() {
     if (d.length < 20) return "A descrição precisa ter pelo menos 20 caracteres.";
     if (d.length > MAX_DESC) return `Descrição: máximo ${MAX_DESC} caracteres.`;
     if (!categoryPath.length) return "Selecione a categoria.";
-    const leaf = findNode(tree, selectedCategoryId);
-    if (leaf?.children?.length) return "Continue até a última categoria.";
-    if (!productType) return "Selecione o que você está vendendo.";
+    if (!categoryIsLeaf) {
+      return "Continue selecionando até a última subcategoria.";
+    }
+    if (!productType && !inferredProductType) {
+      return "Selecione o que você está vendendo.";
+    }
     return null;
   }
 
   function offerStockQty(offer: OfferDraft) {
     if (offer.delivery === "auto") {
-      return Math.max(1, countAutoLines(offer.autoStock));
+      return Math.max(0, countAutoLines(offer.autoStock));
     }
     const qty = Number(offer.stock);
     return Number.isInteger(qty) && qty >= 1 ? qty : 0;
@@ -275,7 +577,9 @@ export function SellPageContent() {
         return `Oferta ${i + 1}: preço inválido (mín. ${formatBrl(MIN_PRICE_CENTS)}).`;
       }
       if (offerStockQty(offer) < 1) {
-        return `Oferta ${i + 1}: estoque inválido.`;
+        return offer.delivery === "auto"
+          ? `Oferta ${i + 1}: cole pelo menos um código/chave por linha.`
+          : `Oferta ${i + 1}: estoque inválido.`;
       }
     }
     return null;
@@ -313,7 +617,7 @@ export function SellPageContent() {
         continue;
       }
       if (file.size > MAX_FILE_BYTES) {
-        err = "Cada imagem deve ter no máximo 10 MB.";
+        err = "Cada imagem deve ter no máximo 5 MB.";
         continue;
       }
       next.push({
@@ -365,23 +669,29 @@ export function SellPageContent() {
         if (b.id === coverId) return 1;
         return 0;
       });
-      const mediaUrls: string[] = [];
+      const mediaAssetIds: string[] = [];
       for (const img of ordered) {
         const { asset } = await uploadMedia({
           file: img.file,
           purpose: "LISTING",
           visibility: "PUBLIC",
         });
-        mediaUrls.push(asset.url);
+        mediaAssetIds.push(asset.id);
       }
 
-      const listingModel = adKind === "composite" ? "DYNAMIC" : "NORMAL";
+      const listingModel = adKind === "dynamic" ? "DYNAMIC" : "NORMAL";
       const result = await createListing({
         categoryId: selectedCategoryId,
         title: title.trim(),
         description: description.trim(),
         listingModel,
         productType: productType || null,
+        deliveryMode:
+          adKind === "simple"
+            ? delivery === "auto"
+              ? "AUTO"
+              : "MANUAL"
+            : undefined,
         stockQuantity:
           adKind === "simple"
             ? delivery === "auto"
@@ -391,16 +701,17 @@ export function SellPageContent() {
         priceCents:
           adKind === "simple" ? parsePriceToCents(price)! : undefined,
         offers:
-          adKind === "composite"
+          adKind === "dynamic"
             ? offers
               .filter((o) => o.active)
               .map((o) => ({
                 title: o.title.trim(),
                 priceCents: parsePriceToCents(o.price)!,
                 stockQuantity: offerStockQty(o),
+                deliveryMode: o.delivery === "auto" ? "AUTO" : "MANUAL",
               }))
             : undefined,
-        mediaUrls,
+        mediaAssetIds,
         publish: true,
       });
 
@@ -480,77 +791,86 @@ export function SellPageContent() {
               </Field>
 
               <div className="space-y-3">
-                {cascadeLevels.map(({ level, options }) => (
+                {cascadeLevels.map(({ level, label, options }) => (
                   <Field key={level}>
-                    <FieldLabel>
-                      {LEVEL_LABELS[level] ?? `Nível ${level + 1}`}
-                    </FieldLabel>
-                    <Select
+                    <FieldLabel>{label}</FieldLabel>
+                    <SearchableSelect
                       value={categoryPath[level] || undefined}
-                      onValueChange={(v) => setPathLevel(level, v ?? "")}
+                      onValueChange={(v) => {
+                        setPathLevel(level, v);
+                        setProductType("");
+                      }}
                       disabled={treeLoading}
-                    >
-                      <SelectTrigger className="py-4.5 w-full cursor-pointer">
-                        <SelectValue
-                          placeholder={treeLoading ? "Carregando…" : "Selecione"}
-                        />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-72 top-4">
-                        {options.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder={
+                        treeLoading
+                          ? "Carregando…"
+                          : `Selecione ${label.toLowerCase()}`
+                      }
+                      searchPlaceholder={`Buscar ${label.toLowerCase()}…`}
+                      options={options.map((c) => ({
+                        value: c.id,
+                        label: c.name,
+                        iconUrl: c.iconUrl || c.imageUrl,
+                      }))}
+                    />
+                    <FieldDescription>
+                      {LEVEL_DESCRIPTIONS[level]}
+                    </FieldDescription>
                   </Field>
                 ))}
 
-                <Field>
-                  <FieldLabel>O que você está vendendo?</FieldLabel>
-                  <Select
-                    value={productType || undefined}
-                    onValueChange={(v) =>
-                      setProductType((v as ListingProductType) ?? "")
-                    }
-                  >
-                    <SelectTrigger className="py-4.5 w-full rounded-sm cursor-pointer">
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PRODUCT_TYPES.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>
-                          {t.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
+                {needsProductTypePick ? (
+                  <Field>
+                    <FieldLabel>O que você está vendendo?</FieldLabel>
+                    <SearchableSelect
+                      value={productType || undefined}
+                      onValueChange={(v) =>
+                        setProductType((v as ListingProductType) ?? "")
+                      }
+                      placeholder="Selecione"
+                      searchPlaceholder="Buscar tipo…"
+                      searchThreshold={6}
+                      options={productTypes.map((t) => ({
+                        value: t.value,
+                        label: t.label,
+                      }))}
+                      emptyText={
+                        productTypes.length
+                          ? "Nenhum tipo encontrado."
+                          : "Tipos indisponíveis — confira a API."
+                      }
+                    />
+                    <FieldDescription>
+                      Esta subcategoria é genérica — escolha o tipo para
+                      ajudar os compradores a encontrar o anúncio.
+                    </FieldDescription>
+                  </Field>
+                ) : null}
               </div>
             </div>
           </Panel>
 
           <Panel>
             <PanelTitle>Visibilidade do seu anúncio</PanelTitle>
-            <p className="mb-4 text-sm text-muted-foreground">
+            <PanelDescription>
               Escolha o alcance. As taxas entram no algoritmo de destaque —
               você pode ajustar isso depois.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-3">
+            </PanelDescription>
+            <div className="grid gap-3 pt-4 sm:grid-cols-3">
               {REACH_PLANS.map((plan) => (
                 <button
                   key={plan.id}
                   type="button"
                   onClick={() => setReach(plan.id)}
                   className={cn(
-                    "relative flex flex-col gap-2 rounded-2xl border p-4 text-left transition-colors",
+                    "relative flex flex-col cursor-pointer gap-2 rounded-md border p-4 text-left transition-colors",
                     reach === plan.id
                       ? "border-primary/50 bg-primary/10 shadow-[0_0_0_1px_hsl(217_91%_54%/0.25)]"
                       : "border-border/60 bg-muted/15 hover:bg-muted/30",
                   )}
                 >
                   {plan.recommended ? (
-                    <span className="absolute -top-2 right-3 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                    <span className="absolute -top-2 -right-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
                       Recomendado
                     </span>
                   ) : null}
@@ -581,18 +901,18 @@ export function SellPageContent() {
       {step === "offers" ? (
         <section className="space-y-6">
           <Panel>
-            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <PanelTitle>Ofertas</PanelTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <PanelDescription>
                   Defina preço e entrega. Adicione variações só se forem
                   realmente diferentes.
-                </p>
+                </PanelDescription>
               </div>
-              {adKind === "composite" ? (
+              {adKind === "dynamic" ? (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="default"
                   size="sm"
                   onClick={() =>
                     setOffers((prev) =>
@@ -600,235 +920,257 @@ export function SellPageContent() {
                     )
                   }
                 >
-                  <PlusIcon className="size-4" />
+                  <PlusCircle className="size-4" />
                   Adicionar
                 </Button>
               ) : null}
             </div>
 
-            <div className="mb-5 grid gap-3 sm:grid-cols-2">
-              <KindCard
-                selected={adKind === "simple"}
-                icon={<PackageIcon className="size-5" />}
-                title="Anúncio simples"
-                description="Apenas um item, ideal para produtos sem variações."
-                onClick={() => setAdKind("simple")}
-              />
-              <KindCard
-                selected={adKind === "composite"}
-                icon={<LayersIcon className="size-5" />}
-                title="Anúncio composto"
-                description="Múltiplos itens no mesmo anúncio, com títulos distintos."
-                onClick={() => setAdKind("composite")}
-              />
-            </div>
+            <div className="space-y-4 pt-4">
+              <div className="flex flex-col sm:flex-row gap-2 border border-border/60 rounded-md p-1">
+                <KindCard
+                  selected={adKind === "simple"}
+                  icon={<PackageIcon className="size-5" />}
+                  title="Anúncio simples"
+                  description="Apenas um item, ideal para produtos sem variações."
+                  onClick={() => setAdKind("simple")}
+                />
+                <KindCard
+                  selected={adKind === "dynamic"}
+                  icon={<LayersIcon className="size-5" />}
+                  title="Anúncio Dinâmico"
+                  description="Múltiplos itens no mesmo anúncio, com títulos distintos."
+                  onClick={() => setAdKind("dynamic")}
+                />
+              </div>
 
-            <p className="mb-4 text-xs text-muted-foreground">
-              Preço mín: {formatBrl(MIN_PRICE_CENTS)}
-              {adKind === "composite" ? " · Máx. 30 ofertas · Título: 3–80 caracteres" : null}
-            </p>
+              <p className="text-xs text-muted-foreground">
+                Preço mín: {formatBrl(MIN_PRICE_CENTS)}
+                {adKind === "dynamic"
+                  ? " · Máx. 30 ofertas · Título: 3–80 caracteres"
+                  : null}
+              </p>
 
-            {adKind === "simple" ? (
-              <div className="space-y-4 rounded-2xl border border-border/50 bg-muted/10 p-4">
-                <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-                  <Field>
-                    <FieldLabel>Preço</FieldLabel>
-                    <Input
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      placeholder="0,00"
-                      inputMode="decimal"
-                      className="h-11 rounded-xl"
-                    />
-                  </Field>
-                  <Field>
+              {adKind === "simple" ? (
+                <div className="space-y-4 rounded-md border border-border/60 p-4">
+                  <div
+                    className={cn(
+                      "grid gap-4",
+                      delivery === "manual"
+                        ? "sm:grid-cols-[minmax(0,1fr)_7rem]"
+                        : "sm:grid-cols-1",
+                    )}
+                  >
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <FieldLabel>Preço</FieldLabel>
+                      <PriceInput value={price} onChange={setPrice} />
+                    </div>
+                    {delivery === "manual" ? (
+                      <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Estoque</FieldLabel>
+                        <Input
+                          value={stock}
+                          onChange={(e) =>
+                            setStock(
+                              e.target.value.replace(/\D/g, "").slice(0, 6),
+                            )
+                          }
+                          placeholder="1"
+                          inputMode="numeric"
+                          className="h-11 rounded-md tabular-nums"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
                     <FieldLabel>Entrega</FieldLabel>
                     <DeliveryToggle value={delivery} onChange={setDelivery} />
-                  </Field>
-                </div>
-                {delivery === "manual" ? (
-                  <Field>
-                    <FieldLabel>Estoque</FieldLabel>
-                    <Input
-                      value={stock}
-                      onChange={(e) => setStock(e.target.value)}
-                      inputMode="numeric"
-                      className="h-11 max-w-[8rem] rounded-xl"
-                    />
-                  </Field>
-                ) : (
-                  <Field>
-                    <div className="mb-1.5 flex items-center justify-between gap-2">
-                      <FieldLabel>Estoque do item</FieldLabel>
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {countAutoLines(autoStock)} / 50000
-                      </span>
+                  </div>
+
+                  {delivery === "auto" ? (
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <FieldLabel>Estoque do item</FieldLabel>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {countAutoLines(autoStock)} unidade
+                          {countAutoLines(autoStock) === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                      <NumberedStockTextarea
+                        value={autoStock}
+                        onChange={setAutoStock}
+                        placeholder="Digite uma chave ou login por linha"
+                      />
                     </div>
-                    <Textarea
-                      value={autoStock}
-                      onChange={(e) => setAutoStock(e.target.value)}
-                      placeholder="Um código, login ou chave por linha"
-                      className="min-h-32 rounded-xl font-mono text-sm"
-                    />
-                    <FieldDescription>
-                      Entrega automática chega em breve — por enquanto usamos a
-                      quantidade de linhas como estoque.
-                    </FieldDescription>
-                  </Field>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {offers.map((offer, index) => (
-                  <div
-                    key={offer.id}
-                    className="space-y-4 rounded-2xl border border-border/50 bg-muted/10 p-4"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-heading text-sm font-semibold">
-                        Oferta {index + 1}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <input
-                            type="checkbox"
-                            checked={offer.active}
-                            onChange={(e) =>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {offers.map((offer, index) => (
+                    <div
+                      key={offer.id}
+                      className="space-y-4 rounded-md border border-border/60 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <p className="pt-2 text-sm font-semibold">
+                          Oferta {index + 1}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <OfferActiveToggle
+                            active={offer.active}
+                            onChange={(next) =>
                               setOffers((prev) =>
                                 prev.map((o) =>
                                   o.id === offer.id
-                                    ? { ...o, active: e.target.checked }
+                                    ? { ...o, active: next }
                                     : o,
                                 ),
                               )
                             }
-                            className="size-3.5 accent-[hsl(var(--primary))]"
                           />
-                          Ativa
-                        </label>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          disabled={offers.length <= 2}
-                          onClick={() =>
-                            setOffers((prev) =>
-                              prev.filter((o) => o.id !== offer.id),
-                            )
-                          }
-                          aria-label="Remover oferta"
-                        >
-                          <Trash2Icon className="size-4 text-destructive" />
-                        </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            disabled={offers.length <= 2}
+                            onClick={() =>
+                              setOffers((prev) =>
+                                prev.filter((o) => o.id !== offer.id),
+                              )
+                            }
+                            aria-label="Remover oferta"
+                          >
+                            <Trash2Icon className="size-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
-                      <Field>
-                        <div className="mb-1.5 flex justify-between gap-2">
-                          <FieldLabel>Título</FieldLabel>
-                          <span className="text-xs text-muted-foreground tabular-nums">
-                            {offer.title.length}/{MAX_TITLE}
-                          </span>
+                      <div
+                        className={cn(
+                          "grid gap-4",
+                          offer.delivery === "manual"
+                            ? "sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_7rem]"
+                            : "sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)]",
+                        )}
+                      >
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <FieldLabel>Título</FieldLabel>
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                              {offer.title.length}/{MAX_TITLE}
+                            </span>
+                          </div>
+                          <Input
+                            value={offer.title}
+                            onChange={(e) =>
+                              setOffers((prev) =>
+                                prev.map((o) =>
+                                  o.id === offer.id
+                                    ? {
+                                      ...o,
+                                      title: e.target.value.slice(
+                                        0,
+                                        MAX_TITLE,
+                                      ),
+                                    }
+                                    : o,
+                                ),
+                              )
+                            }
+                            placeholder="Ex: Plano básico"
+                            className="h-11 rounded-md"
+                          />
                         </div>
-                        <Input
-                          value={offer.title}
-                          onChange={(e) =>
-                            setOffers((prev) =>
-                              prev.map((o) =>
-                                o.id === offer.id
-                                  ? {
-                                    ...o,
-                                    title: e.target.value.slice(0, MAX_TITLE),
-                                  }
-                                  : o,
-                              ),
-                            )
-                          }
-                          placeholder="Ex: Plano básico"
-                          className="h-11 rounded-xl"
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel>Preço</FieldLabel>
-                        <Input
-                          value={offer.price}
-                          onChange={(e) =>
-                            setOffers((prev) =>
-                              prev.map((o) =>
-                                o.id === offer.id
-                                  ? { ...o, price: e.target.value }
-                                  : o,
-                              ),
-                            )
-                          }
-                          placeholder="0,00"
-                          inputMode="decimal"
-                          className="h-11 rounded-xl"
-                        />
-                      </Field>
-                    </div>
-
-                    <Field>
-                      <FieldLabel>Entrega</FieldLabel>
-                      <DeliveryToggle
-                        value={offer.delivery}
-                        onChange={(mode) =>
-                          setOffers((prev) =>
-                            prev.map((o) =>
-                              o.id === offer.id ? { ...o, delivery: mode } : o,
-                            ),
-                          )
-                        }
-                      />
-                    </Field>
-
-                    {offer.delivery === "manual" ? (
-                      <Field>
-                        <FieldLabel>Estoque</FieldLabel>
-                        <Input
-                          value={offer.stock}
-                          onChange={(e) =>
-                            setOffers((prev) =>
-                              prev.map((o) =>
-                                o.id === offer.id
-                                  ? { ...o, stock: e.target.value }
-                                  : o,
-                              ),
-                            )
-                          }
-                          inputMode="numeric"
-                          className="h-11 max-w-[8rem] rounded-xl"
-                        />
-                      </Field>
-                    ) : (
-                      <Field>
-                        <div className="mb-1.5 flex justify-between gap-2">
-                          <FieldLabel>Estoque do item</FieldLabel>
-                          <span className="text-xs text-muted-foreground tabular-nums">
-                            {countAutoLines(offer.autoStock)} / 50000
-                          </span>
+                        <div className="flex flex-col gap-1.5">
+                          <FieldLabel>Preço</FieldLabel>
+                          <PriceInput
+                            value={offer.price}
+                            onChange={(next) =>
+                              setOffers((prev) =>
+                                prev.map((o) =>
+                                  o.id === offer.id
+                                    ? { ...o, price: next }
+                                    : o,
+                                ),
+                              )
+                            }
+                          />
                         </div>
-                        <Textarea
-                          value={offer.autoStock}
-                          onChange={(e) =>
+                        {offer.delivery === "manual" ? (
+                          <div className="flex flex-col gap-1.5">
+                            <FieldLabel>Estoque</FieldLabel>
+                            <Input
+                              value={offer.stock}
+                              onChange={(e) =>
+                                setOffers((prev) =>
+                                  prev.map((o) =>
+                                    o.id === offer.id
+                                      ? {
+                                        ...o,
+                                        stock: e.target.value
+                                          .replace(/\D/g, "")
+                                          .slice(0, 6),
+                                      }
+                                      : o,
+                                  ),
+                                )
+                              }
+                              placeholder="1"
+                              inputMode="numeric"
+                              className="h-11 rounded-md tabular-nums"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <FieldLabel>Entrega</FieldLabel>
+                        <DeliveryToggle
+                          value={offer.delivery}
+                          onChange={(mode) =>
                             setOffers((prev) =>
                               prev.map((o) =>
                                 o.id === offer.id
-                                  ? { ...o, autoStock: e.target.value }
+                                  ? { ...o, delivery: mode }
                                   : o,
                               ),
                             )
                           }
-                          placeholder="Um código, login ou chave por linha"
-                          className="min-h-28 rounded-xl font-mono text-sm"
                         />
-                      </Field>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                      </div>
+
+                      {offer.delivery === "auto" ? (
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <FieldLabel>Estoque do item</FieldLabel>
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                              {countAutoLines(offer.autoStock)} unidade
+                              {countAutoLines(offer.autoStock) === 1
+                                ? ""
+                                : "s"}
+                            </span>
+                          </div>
+                          <NumberedStockTextarea
+                            value={offer.autoStock}
+                            onChange={(next) =>
+                              setOffers((prev) =>
+                                prev.map((o) =>
+                                  o.id === offer.id
+                                    ? { ...o, autoStock: next }
+                                    : o,
+                                ),
+                              )
+                            }
+                            placeholder="Digite uma chave ou login por linha"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </Panel>
 
           <StepFooter
@@ -844,86 +1186,88 @@ export function SellPageContent() {
         <section className="space-y-6">
           <Panel>
             <PanelTitle>Imagens</PanelTitle>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Adicione até {MAX_MEDIA} imagens e escolha qual será a capa do
-              anúncio.
-            </p>
+            <PanelDescription>
+              Adicione até {MAX_MEDIA} imagens (JPEG, PNG ou WebP, máx. 5 MB
+              cada) e escolha qual será a capa do anúncio.
+            </PanelDescription>
 
-            <div className="flex flex-wrap gap-3">
-              {images.map((img) => {
-                const isCover = coverId === img.id;
-                return (
-                  <div key={img.id} className="w-[7.5rem] space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => setCoverId(img.id)}
-                      className={cn(
-                        "relative aspect-video w-full overflow-hidden rounded-xl border-2 bg-muted transition-colors",
-                        isCover
-                          ? "border-primary"
-                          : "border-transparent ring-1 ring-border/60",
-                      )}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={img.previewUrl}
-                        alt=""
-                        className="size-full object-cover"
-                      />
-                    </button>
-                    <div className="flex items-center justify-between gap-1 px-0.5">
+            <div className="space-y-4 pt-4">
+              <div className="flex flex-wrap gap-3">
+                {images.map((img) => {
+                  const isCover = coverId === img.id;
+                  return (
+                    <div key={img.id} className="w-[7.5rem] space-y-2">
                       <button
                         type="button"
                         onClick={() => setCoverId(img.id)}
                         className={cn(
-                          "inline-flex items-center gap-1 text-[10px] font-medium",
-                          isCover ? "text-primary" : "text-muted-foreground",
+                          "relative aspect-video w-full overflow-hidden rounded-md border-2 bg-muted transition-colors",
+                          isCover
+                            ? "border-primary"
+                            : "border-transparent ring-1 ring-border/60",
                         )}
                       >
-                        <StarIcon
-                          className="size-3"
-                          fill={isCover ? "currentColor" : "none"}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={img.previewUrl}
+                          alt=""
+                          className="size-full object-cover"
                         />
-                        {isCover ? "Capa" : "Usar capa"}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => removeImage(img.id)}
-                        className="text-destructive"
-                        aria-label="Remover"
-                      >
-                        <XIcon className="size-3.5" />
-                      </button>
+                      <div className="flex items-center justify-between gap-1 px-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setCoverId(img.id)}
+                          className={cn(
+                            "inline-flex items-center gap-1 text-[10px] font-medium",
+                            isCover ? "text-primary" : "text-muted-foreground",
+                          )}
+                        >
+                          <StarIcon
+                            className="size-3"
+                            fill={isCover ? "currentColor" : "none"}
+                          />
+                          {isCover ? "Capa" : "Usar capa"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeImage(img.id)}
+                          className="text-destructive"
+                          aria-label="Remover"
+                        >
+                          <XIcon className="size-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
 
-              {images.length < MAX_MEDIA ? (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex aspect-video w-[7.5rem] flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border/80 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-                >
-                  <ImagePlusIcon className="size-5" />
-                  <span className="text-xs font-medium">Adicionar</span>
-                </button>
-              ) : null}
+                {images.length < MAX_MEDIA ? (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex aspect-video w-[7.5rem] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border/80 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                  >
+                    <ImagePlusIcon className="size-5" />
+                    <span className="text-xs font-medium">Adicionar</span>
+                  </button>
+                ) : null}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                className="sr-only"
+                onChange={(e) => addFiles(e.target.files)}
+              />
+
+              <FieldDescription>
+                {images.length}/{MAX_MEDIA} imagens · Máximo de 5 MB por arquivo
+                · Proporção recomendada 16:9
+              </FieldDescription>
             </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              className="sr-only"
-              onChange={(e) => addFiles(e.target.files)}
-            />
-
-            <p className="mt-4 text-xs text-muted-foreground">
-              {images.length}/{MAX_MEDIA} imagens · Máximo de 10 MB por arquivo ·
-              Proporção recomendada 16:9
-            </p>
           </Panel>
 
           <StepFooter
@@ -939,78 +1283,95 @@ export function SellPageContent() {
         <section className="space-y-6">
           <Panel>
             <PanelTitle>Revisar</PanelTitle>
-            <p className="mb-5 text-sm text-muted-foreground">
+            <PanelDescription>
               Confira os dados antes de publicar no Elloot.
-            </p>
+            </PanelDescription>
 
-            <div className="space-y-3">
-              <SummaryRow label="Título" value={title.trim()} />
-              <SummaryRow label="Categoria" value={categoryBreadcrumb || "—"} />
-              <SummaryRow
-                label="Tipo"
-                value={
-                  PRODUCT_TYPES.find((t) => t.value === productType)?.label ??
-                  "—"
-                }
-              />
-              <SummaryRow
-                label="Alcance"
-                value={REACH_PLANS.find((p) => p.id === reach)?.title ?? "—"}
-              />
-              <SummaryRow
-                label="Modelo"
-                value={
-                  adKind === "simple" ? "Anúncio simples" : "Anúncio composto"
-                }
-              />
-              {adKind === "simple" ? (
-                <>
-                  <SummaryRow
-                    label="Preço"
-                    value={
-                      parsePriceToCents(price) != null
-                        ? formatBrl(parsePriceToCents(price)!)
-                        : "—"
-                    }
-                  />
-                  <SummaryRow
-                    label="Entrega"
-                    value={delivery === "manual" ? "Manual" : "Automática"}
-                  />
-                  <SummaryRow
-                    label="Estoque"
-                    value={
-                      delivery === "auto"
-                        ? String(countAutoLines(autoStock))
-                        : stock
-                    }
-                  />
-                </>
-              ) : (
+            <div className="space-y-4 pt-4">
+              <div className="space-y-3">
+                <SummaryRow label="Título" value={title.trim()} />
                 <SummaryRow
-                  label="Ofertas"
-                  value={offers
-                    .filter((o) => o.active)
-                    .map(
-                      (o) =>
-                        `${o.title.trim()} (${formatBrl(parsePriceToCents(o.price) ?? 0)})`,
-                    )
-                    .join(" · ")}
+                  label="Categoria"
+                  value={categoryBreadcrumb || "—"}
                 />
-              )}
-              <SummaryRow
-                label="Imagens"
-                value={`${images.length} · capa definida`}
-              />
-            </div>
+                {needsProductTypePick ? (
+                  <SummaryRow
+                    label="Tipo"
+                    value={
+                      productTypes.find((t) => t.value === productType)
+                        ?.label ?? "—"
+                    }
+                  />
+                ) : null}
+                <SummaryRow
+                  label="Alcance"
+                  value={
+                    REACH_PLANS.find((p) => p.id === reach)?.title ?? "—"
+                  }
+                />
+                <SummaryRow
+                  label="Modelo"
+                  value={
+                    adKind === "simple"
+                      ? "Anúncio simples"
+                      : "Anúncio composto"
+                  }
+                />
+                {adKind === "simple" ? (
+                  <>
+                    <SummaryRow
+                      label="Preço"
+                      value={
+                        parsePriceToCents(price) != null
+                          ? formatBrl(parsePriceToCents(price)!)
+                          : "—"
+                      }
+                    />
+                    <SummaryRow
+                      label="Entrega"
+                      value={
+                        delivery === "manual" ? "Manual" : "Automática"
+                      }
+                    />
+                    <SummaryRow
+                      label="Estoque"
+                      value={
+                        delivery === "auto"
+                          ? String(countAutoLines(autoStock))
+                          : stock
+                      }
+                    />
+                  </>
+                ) : (
+                  <SummaryRow
+                    label="Ofertas"
+                    value={offers
+                      .filter((o) => o.active)
+                      .map(
+                        (o) =>
+                          `${o.title.trim()} (${formatBrl(parsePriceToCents(o.price) ?? 0)}) · ${o.delivery === "auto" ? "Auto" : "Manual"}`,
+                      )
+                      .join(" · ")}
+                  />
+                )}
+                <SummaryRow
+                  label="Imagens"
+                  value={
+                    images.length === 0
+                      ? "Nenhuma"
+                      : `${images.length} · capa definida`
+                  }
+                />
+              </div>
 
-            <div className="mt-5 space-y-1.5 border-t border-border/50 pt-4">
-              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Descrição
-              </p>
-              <p className="text-sm whitespace-pre-wrap text-pretty">
-                {description.trim()}
-              </p>
+              <div className="space-y-1.5 border-t border-border/50 pt-4">
+                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  Descrição
+                </p>
+                <p className="text-sm whitespace-pre-wrap text-pretty">
+                  {description.trim()}
+                </p>
+              </div>
             </div>
           </Panel>
 
@@ -1030,27 +1391,27 @@ export function SellPageContent() {
 
 function Panel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-card/40 p-6">
+    <div className="rounded-lg border border-border bg-background p-6">
       {children}
     </div>
   );
-}
+};
 
 function PanelTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="font-heading text-lg font-semibold tracking-tight">
+    <h2 className="text-lg font-semibold tracking-tight">
       {children}
     </h2>
   );
-}
+};
 
 function PanelDescription({ children }: { children: React.ReactNode }) {
   return (
-    <p className="font-heading text-sm text-muted-foreground">
+    <p className="text-sm text-muted-foreground">
       {children}
     </p>
   );
-}
+};
 
 function KindCard({ selected, icon, title, description, onClick, }: { selected: boolean; icon: React.ReactNode; title: string; description: string; onClick: () => void; }) {
   return (
@@ -1058,41 +1419,131 @@ function KindCard({ selected, icon, title, description, onClick, }: { selected: 
       type="button"
       onClick={onClick}
       className={cn(
-        "flex flex-col gap-2 rounded-2xl border p-4 text-left transition-colors",
+        "flex flex-1 cursor-pointer flex-row items-center gap-3 rounded-md border p-4 text-left transition-colors",
         selected
-          ? "border-primary/50 bg-primary/10"
-          : "border-border/60 bg-muted/10 hover:bg-muted/25",
+          ? "bg-primary/10"
+          : "border-border/60 bg-muted/15 hover:bg-muted/30",
       )}
     >
       <span className={selected ? "text-primary" : "text-muted-foreground"}>
         {icon}
       </span>
-      <span className="font-heading text-sm font-semibold">{title}</span>
-      <span className="text-xs text-muted-foreground text-pretty">
-        {description}
-      </span>
+      <div className="flex flex-col">
+        <span className="text-sm font-semibold">{title}</span>
+        <span className="text-xs text-muted-foreground text-pretty">
+          {description}
+        </span>
+      </div>
     </button>
   );
 }
 
-function DeliveryToggle({ value, onChange, }: { value: DeliveryMode; onChange: (v: DeliveryMode) => void; }) {
+function OfferActiveToggle({ active, onChange, }: { active: boolean; onChange: (next: boolean) => void; }) {
   return (
-    <div className="inline-flex h-11 rounded-full border border-border/60 bg-muted/20 p-1">
-      {(["manual", "auto"] as const).map((mode) => (
-        <button
-          key={mode}
-          type="button"
-          onClick={() => onChange(mode)}
-          className={cn(
-            "rounded-full px-4 text-sm font-medium transition-colors",
-            value === mode
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {mode === "manual" ? "Manual" : "Auto"}
-        </button>
-      ))}
+    <Toggle
+      pressed={active}
+      onPressedChange={onChange}
+      className="rounded-sm cursor-pointer"
+    >
+      {/* <span
+        className={cn(
+          "flex size-6 shrink-0 items-center justify-center rounded-sm transition-colors",
+          active
+            ? "bg-primary text-white"
+            : "bg-muted/80 text-muted-foreground/60",
+        )}
+      >
+        {active ? (
+          <CheckIcon className="size-4" />
+        ) : (
+          <XIcon className="size-4" />
+        )}
+      </span> */}
+      <span className="min-w-0 flex-1 text-left">
+        <span className="block text-sm leading-snug">
+          <span className="font-medium text-foreground">Oferta</span>{" "}
+          <span
+            className={cn(
+              "font-medium",
+              active ? "text-primary" : "text-primary/50",
+            )}
+          >
+            ( {active ? "on" : "off"} )
+          </span>
+        </span>
+      </span>
+    </Toggle>
+  );
+}
+
+function DeliveryToggle({
+  value,
+  onChange,
+}: {
+  value: DeliveryMode;
+  onChange: (v: DeliveryMode) => void;
+}) {
+  const options = [
+    {
+      mode: "manual" as const,
+      title: "Manual",
+      description: "Você entrega manualmente após a compra.",
+    },
+    {
+      mode: "auto" as const,
+      title: "Automática",
+      description: "Entrega automática com códigos ou chaves.",
+    },
+  ] as const;
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {options.map(({ mode, title, description }) => {
+        const active = value === mode;
+        return (
+          <Toggle
+            key={mode}
+            variant="card"
+            size="card"
+            pressed={active}
+            onPressedChange={(pressed) => {
+              if (pressed) onChange(mode);
+            }}
+            aria-label={`${title}: ${active ? "ativado" : "desativado"}`}
+          >
+            <span
+              className={cn(
+                "flex size-10 shrink-0 items-center justify-center rounded-sm transition-colors",
+                active
+                  ? "bg-primary text-white"
+                  : "bg-muted/80 text-muted-foreground/60",
+              )}
+            >
+              {active ? (
+                <CheckIcon className="size-5" strokeWidth={2.5} />
+              ) : (
+                <XIcon className="size-5" strokeWidth={2.5} />
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm leading-snug">
+                <span className="font-semibold text-foreground">Entrega {title}</span>{" "}
+                <span
+                  className={cn(
+                    "font-medium",
+                    active ? "text-primary" : "text-primary/50",
+                  )}
+                >
+                  ( {active ? "Ativado" : "Desativado"} )
+                </span>
+              </span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground text-pretty">
+                {description}
+              </span>
+            </span>
+          </Toggle>
+        );
+      })}
     </div>
   );
 }
@@ -1105,16 +1556,25 @@ function StepFooter({ error, onBack, onBackHref, backLabel = "Voltar", onNext, n
           {error}
         </FieldError>
       ) : null}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-row items-center justify-between gap-3">
         {onBackHref ? (
           <Link
             href={onBackHref}
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "lg" }),
+              "flex-1",
+            )}
           >
             {backLabel}
           </Link>
         ) : (
-          <Button type="button" variant="ghost" onClick={onBack}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            onClick={onBack}
+            className="flex-1"
+          >
             {backLabel}
           </Button>
         )}
@@ -1122,7 +1582,8 @@ function StepFooter({ error, onBack, onBackHref, backLabel = "Voltar", onNext, n
           type="button"
           onClick={onNext}
           disabled={nextDisabled}
-          className="min-w-28"
+          size="lg"
+          className="min-w-28 flex-1"
         >
           {nextPending ? (
             <>
@@ -1149,4 +1610,4 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
       </span>
     </div>
   );
-}
+};

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { ChevronDownIcon, LogOutIcon, MoonIcon, PackageIcon, UserIcon, WalletIcon, } from "lucide-react";
+import { ChevronDownIcon, LayoutDashboardIcon, LogOutIcon, MessageSquareIcon, MoonIcon, PackageIcon, UserIcon, WalletIcon, } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { routes } from "@/lib/routes";
@@ -91,7 +91,7 @@ export function UserMenu({ user, onLogout }: Props) {
         >
           <div className="p-1.5">
             <MenuLink
-              href={routes.account}
+              href={routes.dashboard}
               icon={UserIcon}
               onClick={() => setOpen(false)}
             >
@@ -102,7 +102,14 @@ export function UserMenu({ user, onLogout }: Props) {
               icon={PackageIcon}
               onClick={() => setOpen(false)}
             >
-              Pedidos
+              Minhas compras
+            </MenuLink>
+            <MenuLink
+              href={routes.messages}
+              icon={MessageSquareIcon}
+              onClick={() => setOpen(false)}
+            >
+              Mensagens
             </MenuLink>
             <MenuLink
               href={routes.wallet}

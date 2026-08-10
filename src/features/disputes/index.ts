@@ -1,13 +1,15 @@
 /**
  * Disputes feature — abrir e acompanhar disputas de pedido.
  *
- * STATUS: planejado (API já existe em elloot-api `/api/disputes`)
- *
- * Quando implementar, criar aqui:
- * - `api.ts` — open dispute / list mine
- * - `components/` — botão no order detail + formulário
- *
- * Resolução admin fica no backend (`requireRole("ADMIN")`); UI admin é futura.
+ * STATUS: API + painel no order detail. Resolução admin via
+ * `POST /api/disputes/:id/resolve`.
  */
 
-export {};
+export { fetchMyDisputes, openDispute } from "./api";
+export type { Dispute, DisputeStatus, DisputeResolution } from "./api";
+export {
+  disputeStatusLabel,
+  disputeResolutionLabel,
+  disputeStatusTone,
+} from "./labels";
+export { OrderDisputePanel } from "./components/order-dispute-panel";

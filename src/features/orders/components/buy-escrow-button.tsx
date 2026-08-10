@@ -11,10 +11,12 @@ import { routes } from "@/lib/routes";
 type Props = {
   listingId: string;
   sellerId: string;
+  offerId?: string;
+  priceLabel?: string;
   disabled?: boolean;
 };
 
-export function BuyEscrowButton({ listingId, sellerId, disabled }: Props) {
+export function BuyEscrowButton({ listingId, sellerId, offerId, priceLabel, disabled, }: Props) {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [pending, setPending] = useState(false);
@@ -39,7 +41,7 @@ export function BuyEscrowButton({ listingId, sellerId, disabled }: Props) {
 
     setPending(true);
     try {
-      const { order } = await createOrder(listingId);
+      const { order } = await createOrder(listingId, offerId);
       router.push(routes.order(order.id));
     } catch (err) {
       setError(
@@ -65,7 +67,9 @@ export function BuyEscrowButton({ listingId, sellerId, disabled }: Props) {
           : isOwnListing
             ? "Seu anúncio"
             : user
-              ? "Comprar com escrow"
+              ? priceLabel
+                ? `Comprar por ${priceLabel}`
+                : "Comprar com escrow"
               : "Entrar para comprar"}
       </Button>
       {error ? (

@@ -1,5 +1,6 @@
 import { api } from "@/lib/api/client";
 import type {
+  DeliveryMode,
   ListingDetail,
   ListingModel,
   ListingProductType,
@@ -9,6 +10,7 @@ export type CreateListingOfferInput = {
   title: string;
   priceCents: number;
   stockQuantity?: number;
+  deliveryMode?: DeliveryMode;
 };
 
 export type CreateListingInput = {
@@ -19,6 +21,10 @@ export type CreateListingInput = {
   stockQuantity?: number;
   productType?: ListingProductType | null;
   listingModel?: ListingModel;
+  deliveryMode?: DeliveryMode;
+  /** Preferred: ids returned by uploadMedia (purpose LISTING). */
+  mediaAssetIds?: string[];
+  /** @deprecated Prefer mediaAssetIds. */
   mediaUrls?: string[];
   publish?: boolean;
   offers?: CreateListingOfferInput[];
@@ -36,4 +42,8 @@ export async function createListing(input: CreateListingInput) {
     "/api/listings",
     input,
   );
+}
+
+export async function fetchMyListings() {
+  return api.get<{ listings: ListingDetail[] }>("/api/listings/mine");
 }

@@ -77,7 +77,7 @@ export default async function MarketPage({ searchParams }: Props) {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 sm:gap-5">
             {catalog.listings.map((listing, index) => (
               <ListingCard
                 key={listing.id}
