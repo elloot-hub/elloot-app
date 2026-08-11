@@ -9,12 +9,11 @@ import { listingVertical } from "@/features/catalog/listing-category";
 import { ListingBuyPanel } from "@/features/listings/components/listing-buy-panel";
 import { ExpandableDescription } from "@/features/listings/components/expandable-description";
 import { ListingImageSlider } from "@/features/listings/components/listing-image-slider";
+import { ListingQuestionsSection } from "@/features/listings/components/listing-questions-section";
+import { ListingReviewsSection } from "@/features/listings/components/listing-reviews-section";
 import { ListingSellerCard } from "@/features/listings/components/listing-seller-card";
 import { routes } from "@/lib/routes";
-import type {
-  ListingDetail as ListingDetailType,
-  ListingProductType,
-} from "@/types/api";
+import type { ListingDetail as ListingDetailType, ListingProductType, } from "@/types/api";
 
 type Props = {
   listing: ListingDetailType;
@@ -51,18 +50,12 @@ export function ListingDetailView({ listing }: Props) {
   const visual = getCategoryVisual(vertical.slug);
   const isAuto = listing.deliveryMode === "AUTO";
   const isDynamic = listing.listingModel === "DYNAMIC";
-  const categoryTrail = listing.category.parent
-    ? [listing.category.parent, listing.category]
-    : [listing.category];
+  const categoryTrail = listing.category.parent ? [listing.category.parent, listing.category] : [listing.category];
 
-  const stockTotal = isDynamic
-    ? (listing.offers ?? []).reduce((sum, o) => sum + o.stockQuantity, 0)
-    : listing.stockQuantity;
+  const stockTotal = isDynamic ? (listing.offers ?? []).reduce((sum, o) => sum + o.stockQuantity, 0) : listing.stockQuantity;
   const unitsSold = listing.unitsSold ?? 0;
   const salesCount = listing.salesCount ?? 0;
-  const productLabel = listing.productType
-    ? PRODUCT_TYPE_LABEL[listing.productType]
-    : "—";
+  const productLabel = listing.productType ? PRODUCT_TYPE_LABEL[listing.productType] : "—";
 
   const gallery = (
     <ListingImageSlider
@@ -173,12 +166,20 @@ export function ListingDetailView({ listing }: Props) {
         </span>
       </nav>
 
-      {/* Mobile: ordem customizada via `contents` + order. Desktop: layout em 2 colunas inalterado. */}
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] lg:items-start lg:gap-10">
         <div className="contents lg:flex lg:flex-col lg:gap-4">
           <div className="order-1 lg:order-none">{gallery}</div>
           <div className="order-2 lg:order-none">{titleBlock}</div>
           <div className="order-5 lg:order-none">{description}</div>
+          <div className="order-8 lg:order-none">
+            <ListingReviewsSection listingId={listing.id} />
+          </div>
+          <div className="order-9 lg:order-none">
+            <ListingQuestionsSection
+              listingId={listing.id}
+              sellerId={listing.seller.id}
+            />
+          </div>
         </div>
 
         <aside className="contents lg:sticky lg:top-24 lg:flex lg:flex-col lg:gap-4">
@@ -203,13 +204,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: ReactNode;
-}) {
+function DetailRow({ label, value, }: { label: string; value: ReactNode; }) {
   return (
     <div className="grid grid-cols-[8rem_minmax(0,1fr)] gap-3 bg-background/40 px-3 py-2.5 text-sm sm:grid-cols-[10rem_minmax(0,1fr)]">
       <dt className="text-muted-foreground">{label}</dt>

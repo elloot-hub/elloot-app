@@ -94,12 +94,7 @@ export function ConversationThreadClient({ conversationId }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
 
-  const otherId =
-    conversation && user
-      ? user.id === conversation.order.buyerId
-        ? conversation.order.sellerId
-        : conversation.order.buyerId
-      : null;
+  const otherId = conversation && user ? user.id === conversation.order.buyerId ? conversation.order.sellerId : conversation.order.buyerId : null;
   const otherPresence = usePresence(otherId);
 
   const scrollToBottom = useCallback(() => {
@@ -251,14 +246,11 @@ export function ConversationThreadClient({ conversationId }: Props) {
     );
   }
 
-  const other =
-    user?.id === conversation.order.buyerId
-      ? conversation.order.seller
-      : conversation.order.buyer;
+  const other = user?.id === conversation.order.buyerId ? conversation.order.seller : conversation.order.buyer;
   const closed = CLOSED.has(conversation.order.status);
 
   return (
-    <div className="flex min-h-[min(70vh,640px)] flex-col overflow-hidden rounded-md border border-border/60 bg-card/30">
+    <div className="flex min-h-[min(70vh,640px)] max-h-[min(70vh,640px)] flex-col overflow-hidden rounded-md border border-border/60 bg-card/30">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border/60 px-3 py-3 sm:px-4">
         <div className="min-w-0 space-y-1">
           <Link

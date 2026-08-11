@@ -3,7 +3,27 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { BadgeCheckIcon, BanknoteIcon, BellIcon, ChevronDownIcon, HeartIcon, HelpCircleIcon, LayoutDashboardIcon, MenuIcon, MessageSquareIcon, PackageIcon, SettingsIcon, ShoppingBagIcon, StoreIcon, TrendingUpIcon, UserIcon, WalletIcon, XIcon, } from "lucide-react";
+import {
+  BadgeCheckIcon,
+  BanknoteIcon,
+  BellIcon,
+  ChevronDownIcon,
+  HeartIcon,
+  HelpCircleIcon,
+  LayoutDashboardIcon,
+  MenuIcon,
+  MessageCircleIcon,
+  MessageSquareIcon,
+  PackageIcon,
+  SettingsIcon,
+  ShoppingBagIcon,
+  StarIcon,
+  StoreIcon,
+  TrendingUpIcon,
+  UserIcon,
+  WalletIcon,
+  XIcon,
+} from "lucide-react";
 import { FaDiscord } from "react-icons/fa6";
 import { useAuth } from "@/features/auth/context";
 import { buttonVariants } from "@/components/ui/button";
@@ -65,6 +85,16 @@ const SECTIONS: NavSection[] = [
         icon: HeartIcon,
       },
       {
+        href: routes.dashboardQuestionsMine,
+        label: "Minhas perguntas",
+        icon: MessageCircleIcon,
+      },
+      {
+        href: routes.dashboardReviewsMine,
+        label: "Minhas avaliações",
+        icon: StarIcon,
+      },
+      {
         href: routes.dashboardMessages,
         label: "Mensagens",
         icon: MessageSquareIcon,
@@ -86,6 +116,16 @@ const SECTIONS: NavSection[] = [
         href: routes.dashboardSales,
         label: "Minhas vendas",
         icon: PackageIcon,
+      },
+      {
+        href: routes.dashboardQuestionsReceived,
+        label: "Perguntas recebidas",
+        icon: MessageCircleIcon,
+      },
+      {
+        href: routes.dashboardReviews,
+        label: "Avaliações recebidas",
+        icon: StarIcon,
       },
       {
         href: routes.dashboardMetrics,

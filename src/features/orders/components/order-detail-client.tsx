@@ -28,6 +28,7 @@ import { formatBRLFromCents } from "@/lib/format";
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import { OrderDisputePanel } from "@/features/disputes/components/order-dispute-panel";
+import { OrderReviewForm } from "@/features/orders/components/order-review-form";
 import { OrderDetailSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -335,6 +336,14 @@ export function OrderDetailClient({ orderId }: Props) {
             <ShieldCheckIcon className="mt-0.5 size-4 shrink-0" />
             <p>Pedido concluído com sucesso. O valor foi liberado ao vendedor.</p>
           </div>
+        ) : null}
+
+        {order.status === "COMPLETED" && isBuyer ? (
+          <OrderReviewForm
+            orderId={order.id}
+            alreadyReviewed={Boolean(order.review)}
+            onSubmitted={() => void refresh()}
+          />
         ) : null}
 
         {order.conversation?.id ? (

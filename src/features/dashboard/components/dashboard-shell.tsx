@@ -13,13 +13,7 @@ type Props = {
   children: ReactNode;
 };
 
-export function DashboardShell({
-  title,
-  description,
-  breadcrumb,
-  actions,
-  children,
-}: Props) {
+export function DashboardShell({ title, description, breadcrumb, actions, children, }: Props) {
   return (
     <Container className="py-6 sm:py-8">
       <div className="grid gap-6 lg:grid-cols-[17.5rem_minmax(0,1fr)] lg:items-start lg:gap-8">

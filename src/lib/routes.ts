@@ -19,6 +19,10 @@ export const routes = {
   dashboardWithdrawals: "/dashboard/withdrawals",
   dashboardSettings: "/dashboard/settings",
   dashboardVerification: "/dashboard/verification",
+  dashboardQuestionsMine: "/dashboard/questions",
+  dashboardQuestionsReceived: "/dashboard/questions/received",
+  dashboardReviews: "/dashboard/reviews",
+  dashboardReviewsMine: "/dashboard/reviews/mine",
 
   /** Aliases kept for deep-links / menu legado. */
   orders: "/dashboard/purchases",

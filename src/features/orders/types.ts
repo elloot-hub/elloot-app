@@ -55,6 +55,12 @@ export type Order = {
     releasedAt: string | null;
   } | null;
   conversation: { id: string } | null;
+  review?: {
+    id: string;
+    rating: number;
+    comment: string | null;
+    createdAt: string;
+  } | null;
   dispute?: {
     id: string;
     openedById: string;

@@ -8,7 +8,7 @@ import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Painel",
+  title: "Dashboard",
 };
 
 export default function DashboardPage() {
