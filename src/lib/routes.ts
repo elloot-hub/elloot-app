@@ -3,7 +3,10 @@ export const routes = {
   home: "/",
   /** Browse catalog. Query: `?category=slug` (legacy `?game=` still accepted by API). */
   market: "/market",
+  cart: "/carrinho",
   listing: (id: string) => `/listings/${id}` as const,
+  sellerProfile: (id: string) => `/vendedores/${id}` as const,
+  seller: (id: string) => `/vendedores/${id}` as const,
   sell: "/sell",
 
   /** Logged-in hub (overview + buyer/seller tools). */

@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BadgeCheckIcon, CreditCardIcon, ShieldCheckIcon, } from "lucide-react";
+import { BadgeCheckIcon, CheckCircle2Icon, CreditCardIcon, ShieldCheckIcon, ShoppingBagIcon, } from "lucide-react";
 import { FaTruckFast } from "react-icons/fa6";
+import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/features/favorites";
 import { BuyEscrowButton } from "@/features/orders/components/buy-escrow-button";
 import { OfferSelectMenu } from "@/features/listings/components/offer-select-menu";
+import { useCart } from "@/features/cart";
 import { formatBRLFromCents } from "@/lib/format";
 import type { ListingDetail as ListingDetailType, ListingOffer, } from "@/types/api";
 
@@ -14,6 +16,9 @@ type Props = {
 };
 
 export function ListingBuyPanel({ listing }: Props) {
+  const { addItem } = useCart();
+  const [added, setAdded] = useState(false);
+
   const isDynamic = listing.listingModel === "DYNAMIC";
   const isAuto = listing.deliveryMode === "AUTO";
   const offers = useMemo(
@@ -38,6 +43,24 @@ export function ListingBuyPanel({ listing }: Props) {
 
   const emailOk = listing.seller.verifications?.email ?? false;
   const docsOk = listing.seller.verifications?.documents ?? false;
+
+  const handleAddToCart = () => {
+    const itemTitle = isDynamic && selectedOffer ? `${listing.title} - ${selectedOffer.title}` : listing.title;
+    addItem({
+      id: isDynamic && selectedOffer ? `${listing.id}-${selectedOffer.id}` : listing.id,
+      title: itemTitle,
+      price: displayPrice / 100,
+      image: listing.media[0]?.url || "/elloot-navbar.png",
+      category: listing.category?.name || "Marketplace",
+      seller: {
+        name: listing.seller.name || "Vendedor",
+        verified: Boolean(emailOk || docsOk),
+      },
+      stock: isDynamic && selectedOffer ? selectedOffer.stockQuantity : listing.stockQuantity,
+    });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  };
 
   return (
     <div className="space-y-4 rounded-md border border-border/60 bg-card/50 p-4 sm:p-5">
@@ -67,12 +90,33 @@ export function ListingBuyPanel({ listing }: Props) {
       ) : null}
 
       {canBuy ? (
-        <BuyEscrowButton
-          listingId={listing.id}
-          sellerId={listing.seller.id}
-          offerId={isDynamic ? selectedOffer?.id : undefined}
-          priceLabel={formatBRLFromCents(displayPrice)}
-        />
+        <div className="space-y-2.5">
+          <BuyEscrowButton
+            listingId={listing.id}
+            sellerId={listing.seller.id}
+            offerId={isDynamic ? selectedOffer?.id : undefined}
+            priceLabel={formatBRLFromCents(displayPrice)}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            onClick={handleAddToCart}
+            className="w-full gap-2 font-semibold"
+          >
+            {added ? (
+              <>
+                <CheckCircle2Icon className="size-4 text-emerald-500" />
+                Adicionado ao Carrinho
+              </>
+            ) : (
+              <>
+                <ShoppingBagIcon className="size-4" />
+                Adicionar ao carrinho
+              </>
+            )}
+          </Button>
+        </div>
       ) : (
         <p className="rounded-md border border-border/50 px-3 py-3 text-center text-sm text-muted-foreground">
           {listing.status !== "ACTIVE"

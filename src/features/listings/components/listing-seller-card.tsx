@@ -145,8 +145,8 @@ export function ListingSellerCard({ seller, className }: Props) {
         </div>
 
         <Link
-          href={`${routes.market}?seller=${encodeURIComponent(seller.id)}`}
-          className="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-full border border-border/70 px-3 text-[11px] font-medium transition-colors hover:bg-muted/40"
+          href={routes.sellerProfile(seller.id)}
+          className="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-full border border-border/70 px-3 text-[11px] font-medium transition-colors hover:bg-muted/40 hover:border-primary/50 hover:text-primary"
         >
           Ver perfil
           <ChevronRightIcon className="size-3.5" />

@@ -3,6 +3,7 @@ import { DM_Sans, Geist_Mono, Sora } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/features/auth/context";
+import { CartProvider } from "@/features/cart";
 import { FavoritesProvider } from "@/features/favorites";
 import { NotificationsProvider } from "@/features/notifications";
 import { RealtimeProvider } from "@/features/realtime";
@@ -64,7 +65,9 @@ export default function RootLayout({
             <AuthProvider>
               <RealtimeProvider>
                 <NotificationsProvider>
-                  <FavoritesProvider>{children}</FavoritesProvider>
+                  <FavoritesProvider>
+                    <CartProvider>{children}</CartProvider>
+                  </FavoritesProvider>
                 </NotificationsProvider>
               </RealtimeProvider>
             </AuthProvider>
