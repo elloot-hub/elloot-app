@@ -174,9 +174,26 @@ const SECTIONS: NavSection[] = [
   },
 ];
 
-function isActive(pathname: string, item: NavItem) {
+const ALL_NAV_ITEMS: NavItem[] = SECTIONS.flatMap((s) => s.items);
+
+function pathMatchesItem(pathname: string, item: NavItem) {
   if (item.exact) return pathname === item.href;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
+}
+
+/**
+ * Only the most specific (longest href) match is active — avoids
+ * `/dashboard/questions` lighting up on `/dashboard/questions/received`.
+ */
+function isActive(pathname: string, item: NavItem) {
+  if (!pathMatchesItem(pathname, item)) return false;
+  const matches = ALL_NAV_ITEMS.filter((candidate) =>
+    pathMatchesItem(pathname, candidate),
+  );
+  const best = matches.reduce((a, b) =>
+    a.href.length >= b.href.length ? a : b,
+  );
+  return best.href === item.href;
 }
 
 function sellerInitial(name: string | null | undefined, email?: string) {
@@ -311,13 +328,12 @@ function NavBody({
                           href={item.href}
                           onClick={onNavigate}
                           className={cn(
-                            "relative flex items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
+                            "relative flex items-center gap-2 rounded-sm px-2.5 py-2 text-sm font-medium transition-colors",
                             active
                               ? "bg-primary/10 text-primary before:absolute before:-left-[calc(0.5rem+1px)] before:top-1 before:bottom-1 before:w-[3px] before:rounded-full before:bg-primary"
                               : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
                           )}
                         >
-                          <Icon className="size-3.5 shrink-0 opacity-80" />
                           <span className="min-w-0 flex-1 truncate">
                             {item.label}
                           </span>

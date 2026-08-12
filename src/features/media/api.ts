@@ -1,7 +1,6 @@
 import { api } from "@/lib/api/client";
 import { config } from "@/lib/config";
 import { ApiError, isApiErrorBody } from "@/lib/api/errors";
-import { getAccessToken } from "@/features/auth/storage";
 import type { MediaAsset } from "@/types/api";
 
 export type UploadMediaInput = {
@@ -11,11 +10,6 @@ export type UploadMediaInput = {
 };
 
 export async function uploadMedia(input: UploadMediaInput) {
-  const token = getAccessToken();
-  if (!token) {
-    throw new ApiError(401, "UNAUTHORIZED", "Faça login para enviar imagens");
-  }
-
   const form = new FormData();
   form.append("file", input.file);
   if (input.purpose) form.append("purpose", input.purpose);
@@ -23,9 +17,9 @@ export async function uploadMedia(input: UploadMediaInput) {
 
   const res = await fetch(`${config.apiUrl}/api/media/upload`, {
     method: "POST",
+    credentials: "include",
     headers: {
       Accept: "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: form,
     cache: "no-store",

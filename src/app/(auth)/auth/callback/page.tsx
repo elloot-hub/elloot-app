@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { exchangeOAuthCode } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/context";
 import { ApiError } from "@/lib/api/errors";
 import { routes } from "@/lib/routes";
@@ -12,40 +13,79 @@ function OAuthCallbackInner() {
   const searchParams = useSearchParams();
   const { setSession, user, loading } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const startedRef = useRef(false);
 
+  const code = searchParams.get("code");
+  const legacyToken = searchParams.get("accessToken");
+
+  // Exchange OAuth code once — do not depend on `user` (setSession would re-trigger).
   useEffect(() => {
-    const accessToken = searchParams.get("accessToken");
+    if (!code && !legacyToken) return;
 
-    if (!accessToken) {
-      if (loading) return;
-      if (user) {
+    const lockKey = code
+      ? `elloot.oauth.exchange:${code}`
+      : `elloot.oauth.legacy:${legacyToken}`;
+    try {
+      if (sessionStorage.getItem(lockKey) === "done") {
         router.replace(routes.market);
         return;
       }
-      setError("Token ausente no retorno do login social.");
-      return;
+      if (sessionStorage.getItem(lockKey) === "pending" && startedRef.current) {
+        return;
+      }
+      sessionStorage.setItem(lockKey, "pending");
+    } catch {
+      // private mode — fall through with ref only
     }
 
-    let cancelled = false;
+    if (startedRef.current) return;
+    startedRef.current = true;
+
     (async () => {
       try {
-        await setSession(accessToken);
-        if (!cancelled) router.replace(routes.market);
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            err instanceof ApiError
-              ? err.message
-              : "Falha ao concluir login social.",
+        if (code) {
+          const result = await exchangeOAuthCode(code);
+          await setSession(null, result.user);
+        } else if (legacyToken) {
+          // Legacy URL token: cookie not set — reject and ask to re-login.
+          throw new ApiError(
+            400,
+            "OAUTH_LEGACY",
+            "Faça login social novamente.",
           );
         }
+        try {
+          sessionStorage.setItem(lockKey, "done");
+        } catch {
+          /* ignore */
+        }
+        router.replace(routes.market);
+      } catch (err) {
+        startedRef.current = false;
+        try {
+          sessionStorage.removeItem(lockKey);
+        } catch {
+          /* ignore */
+        }
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "Falha ao concluir login social.",
+        );
       }
     })();
+  }, [code, legacyToken, router, setSession]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [router, searchParams, setSession, user, loading]);
+  // No code in URL: redirect if already logged in, else show error when ready.
+  useEffect(() => {
+    if (code || legacyToken) return;
+    if (loading) return;
+    if (user) {
+      router.replace(routes.market);
+      return;
+    }
+    setError("Código de autenticação ausente no retorno do login social.");
+  }, [code, legacyToken, loading, user, router]);
 
   if (error) {
     return (

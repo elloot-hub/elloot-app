@@ -3,23 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import {
-  ArrowLeftIcon,
-  ArrowRightIcon,
-  CheckCircle2Icon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  CreditCardIcon,
-  LockIcon,
-  MinusIcon,
-  PlusIcon,
-  QrCodeIcon,
-  ShieldCheckIcon,
-  ShoppingBagIcon,
-  TagIcon,
-  Trash2Icon,
-  WalletIcon,
-} from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, CheckCircle2Icon, ChevronLeftIcon, ChevronRightIcon, CreditCardIcon, LockIcon, MinusIcon, PlusIcon, QrCodeIcon, ShieldCheckIcon, ShoppingBagIcon, TagIcon, Trash2Icon, WalletIcon, } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Container } from "@/components/layout/container";
 import { fetchCatalogListings } from "@/features/catalog/api";
@@ -142,16 +126,7 @@ function RecentListingsCarousel() {
 }
 
 export default function CartPage() {
-  const {
-    items,
-    removeItem,
-    updateQuantity,
-    clearCart,
-    subtotal,
-    serviceFee,
-    total,
-    itemCount,
-  } = useCart();
+  const { items, removeItem, updateQuantity, clearCart, subtotal, serviceFee, total, itemCount, } = useCart();
 
   const [couponCode, setCouponCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState<number>(0);
@@ -182,11 +157,10 @@ export default function CartPage() {
   return (
     <div className="py-8 sm:py-12 select-none">
       <Container className="space-y-8">
-        {/* Navigation Breadcrumb */}
         <div className="flex items-center justify-between">
           <Link
             href={routes.market}
-            className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeftIcon className="size-4" />
             Continuar comprando no Mercado
@@ -203,9 +177,8 @@ export default function CartPage() {
           ) : null}
         </div>
 
-        {/* Page Title */}
         <div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl text-foreground">
+          <h1 className="text-2xl font-bold sm:text-3xl text-foreground">
             Carrinho de Compras
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -216,7 +189,6 @@ export default function CartPage() {
         </div>
 
         {items.length === 0 ? (
-          /* Empty State */
           <div className="surface-panel flex flex-col items-center justify-center p-12 text-center">
             <div className="flex size-20 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-4">
               <ShoppingBagIcon className="size-10 stroke-[1.5]" />

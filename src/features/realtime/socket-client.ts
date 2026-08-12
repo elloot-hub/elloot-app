@@ -7,14 +7,15 @@ import type { ClientToServerEvents, ServerToClientEvents } from "./events";
 export type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 let socket: AppSocket | null = null;
-let activeToken: string | null = null;
+let connectedForSession = false;
 
 export function getRealtimeSocket() {
   return socket;
 }
 
-export function connectRealtime(token: string): AppSocket {
-  if (socket && activeToken === token && socket.connected) {
+/** Cookie session only — do not pass JWT in handshake auth. */
+export function connectRealtime(_sessionFlag?: string): AppSocket {
+  if (socket && connectedForSession && socket.connected) {
     return socket;
   }
 
@@ -23,11 +24,11 @@ export function connectRealtime(token: string): AppSocket {
     socket = null;
   }
 
-  activeToken = token;
+  connectedForSession = true;
   socket = io(config.apiUrl, {
     path: "/socket.io",
     transports: ["websocket", "polling"],
-    auth: { token },
+    withCredentials: true,
     autoConnect: true,
     reconnection: true,
     reconnectionDelay: 1000,
@@ -42,5 +43,5 @@ export function disconnectRealtime() {
     socket.disconnect();
     socket = null;
   }
-  activeToken = null;
+  connectedForSession = false;
 }

@@ -18,10 +18,22 @@ export async function login(input: { email: string; password: string }) {
   return api.post<AuthResponse>("/api/auth/login", input, { auth: false });
 }
 
-export async function fetchMe(token?: string | null) {
-  return api.get<{ user: User }>("/api/auth/me", {
-    token: token ?? undefined,
+export async function logoutRequest() {
+  return api.post<{ ok: boolean }>("/api/auth/logout", undefined, {
+    auth: false,
   });
+}
+
+export async function exchangeOAuthCode(code: string) {
+  return api.post<AuthResponse>(
+    "/api/auth/oauth/exchange",
+    { code },
+    { auth: false },
+  );
+}
+
+export async function fetchMe(_token?: string | null) {
+  return api.get<{ user: User }>("/api/auth/me");
 }
 
 export function googleAuthUrl() {

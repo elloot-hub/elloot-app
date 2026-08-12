@@ -1,12 +1,12 @@
 import { config } from "@/lib/config";
 import { ApiError, isApiErrorBody } from "@/lib/api/errors";
-import { getAccessToken } from "@/features/auth/storage";
 
 type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 export type ApiRequestOptions = {
   method?: HttpMethod;
   body?: unknown;
+  /** Ignored — auth is httpOnly cookie only. Kept for call-site compat. */
   token?: string | null;
   auth?: boolean;
   headers?: HeadersInit;
@@ -35,26 +35,18 @@ export async function apiRequest<T>(
   const {
     method = "GET",
     body,
-    auth = true,
     headers,
     signal,
     query,
   } = options;
 
-  const token =
-    options.token !== undefined
-      ? options.token
-      : auth
-        ? getAccessToken()
-        : null;
-
   const res = await fetch(buildUrl(path, query), {
     method,
     signal,
+    credentials: "include",
     headers: {
       Accept: "application/json",
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,

@@ -4,16 +4,16 @@ import { DashboardShell } from "@/features/dashboard/components/dashboard-shell"
 import { NotificationsListClient } from "@/features/notifications/components/notifications-list-client";
 
 export const metadata: Metadata = {
-  title: "Notificações",
+  title: "Central de notificações",
 };
 
 export default function DashboardNotificationsPage() {
   return (
     <RequireAuth>
       <DashboardShell
-        title="Notificações"
-        description="Alertas de pedidos, mensagens e conta em tempo real."
-        breadcrumb={["Conta", "Visão geral", "Notificações"]}
+        title="Central de notificações"
+        description="Veja e gerencie as notificações da sua conta."
+        breadcrumb={["Conta", "Central de notificações"]}
       >
         <NotificationsListClient />
       </DashboardShell>

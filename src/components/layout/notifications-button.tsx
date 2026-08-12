@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/popover";
 import { useAuth } from "@/features/auth/context";
 import { useNotifications } from "@/features/notifications";
+import { safeInternalHref } from "@/features/notifications/safe-href";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -145,33 +146,36 @@ export function NotificationsButton({ className }: Props) {
             </div>
           ) : (
             <ul className="divide-y divide-border/50">
-              {visible.map((item) => (
-                <li key={item.id}>
-                  {item.href ? (
-                    <Link
-                      href={item.href}
-                      onClick={() => void markRead(item.id)}
-                      className={cn(
-                        "flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
-                        !item.read && "bg-primary/5",
-                      )}
-                    >
-                      <NotificationBody item={item} />
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => void markRead(item.id)}
-                      className={cn(
-                        "flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
-                        !item.read && "bg-primary/5",
-                      )}
-                    >
-                      <NotificationBody item={item} />
-                    </button>
-                  )}
-                </li>
-              ))}
+              {visible.map((item) => {
+                const safeHref = safeInternalHref(item.href);
+                return (
+                  <li key={item.id}>
+                    {safeHref ? (
+                      <Link
+                        href={safeHref}
+                        onClick={() => void markRead(item.id)}
+                        className={cn(
+                          "flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
+                          !item.read && "bg-primary/5",
+                        )}
+                      >
+                        <NotificationBody item={item} />
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => void markRead(item.id)}
+                        className={cn(
+                          "flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
+                          !item.read && "bg-primary/5",
+                        )}
+                      >
+                        <NotificationBody item={item} />
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

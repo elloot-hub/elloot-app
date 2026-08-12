@@ -715,9 +715,7 @@ export function SellPageContent() {
         publish: true,
       });
 
-      if (result.accessToken) {
-        await setSession(result.accessToken);
-      }
+      await setSession();
 
       router.push(routes.listing(result.listing.id));
     } catch (err) {

@@ -9,16 +9,18 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { fetchMe, login as loginRequest, register as registerRequest } from "@/features/auth/api";
 import {
-  clearAccessToken,
-  getAccessToken,
-  setAccessToken,
-} from "@/features/auth/storage";
+  fetchMe,
+  login as loginRequest,
+  logoutRequest,
+  register as registerRequest,
+} from "@/features/auth/api";
+import { clearAccessToken } from "@/features/auth/storage";
 import type { User } from "@/types/api";
 
 type AuthContextValue = {
   user: User | null;
+  /** True when cookie session is active (JWT is never stored in JS). */
   token: string | null;
   loading: boolean;
   login: (input: { email: string; password: string }) => Promise<void>;
@@ -28,7 +30,8 @@ type AuthContextValue = {
     name?: string;
   }) => Promise<void>;
   logout: () => void;
-  setSession: (accessToken: string, user?: User | null) => Promise<void>;
+  /** Establishes client session from cookie (optional user from exchange). */
+  setSession: (accessToken?: string | null, user?: User | null) => Promise<void>;
   refreshUser: () => Promise<void>;
 };
 
@@ -36,30 +39,27 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refreshUser = useCallback(async () => {
-    const current = getAccessToken();
-    if (!current) {
+    try {
+      const { user: me } = await fetchMe();
+      setUser(me);
+    } catch {
+      clearAccessToken();
       setUser(null);
-      setToken(null);
-      return;
     }
-    const { user: me } = await fetchMe(current);
-    setToken(current);
-    setUser(me);
   }, []);
 
   const setSession = useCallback(
-    async (accessToken: string, nextUser?: User | null) => {
-      setAccessToken(accessToken);
-      setToken(accessToken);
+    async (_accessToken?: string | null, nextUser?: User | null) => {
+      // Cookie already set by API (login/register/oauth exchange).
+      clearAccessToken();
       if (nextUser) {
         setUser(nextUser);
         return;
       }
-      const { user: me } = await fetchMe(accessToken);
+      const { user: me } = await fetchMe();
       setUser(me);
     },
     [],
@@ -69,19 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const current = getAccessToken();
-        if (!current) return;
-        const { user: me } = await fetchMe(current);
-        if (!cancelled) {
-          setToken(current);
-          setUser(me);
-        }
+        clearAccessToken();
+        const { user: me } = await fetchMe();
+        if (!cancelled) setUser(me);
       } catch {
         clearAccessToken();
-        if (!cancelled) {
-          setToken(null);
-          setUser(null);
-        }
+        if (!cancelled) setUser(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -94,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (input: { email: string; password: string }) => {
       const result = await loginRequest(input);
-      await setSession(result.accessToken, result.user);
+      await setSession(null, result.user);
     },
     [setSession],
   );
@@ -102,21 +95,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     async (input: { email: string; password: string; name?: string }) => {
       const result = await registerRequest(input);
-      await setSession(result.accessToken, result.user);
+      await setSession(null, result.user);
     },
     [setSession],
   );
 
   const logout = useCallback(() => {
+    void logoutRequest().catch(() => undefined);
     clearAccessToken();
-    setToken(null);
     setUser(null);
   }, []);
 
   const value = useMemo(
     () => ({
       user,
-      token,
+      // Sentinel so existing `if (token)` checks keep working without exposing JWT.
+      token: user ? "cookie" : null,
       loading,
       login,
       register,
@@ -124,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession,
       refreshUser,
     }),
-    [user, token, loading, login, register, logout, setSession, refreshUser],
+    [user, loading, login, register, logout, setSession, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
