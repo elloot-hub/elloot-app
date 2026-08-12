@@ -1,7 +1,7 @@
 "use client";
 
 import { ShoppingBagIcon } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useCart } from "@/features/cart/context";
 import { cn } from "@/lib/utils";
 
@@ -13,20 +13,20 @@ export function CartButton({ className }: Props) {
   const { itemCount, toggleCart, isOpen } = useCart();
 
   return (
-    <button
+    <Button
       type="button"
       onClick={toggleCart}
       aria-label={`Carrinho de compras (${itemCount} itens)`}
       aria-expanded={isOpen}
       title="Carrinho de compras"
       className={cn(
-        buttonVariants({ variant: "outline", size: "icon-sm" }),
-        "relative rounded-full duration-200 hover:scale-105 active:scale-95 select-none",
+        buttonVariants({ variant: "default", size: "icon-sm" }),
+        "relative select-none",
         isOpen && "border-primary text-primary bg-primary/10",
         className,
       )}
     >
-      <ShoppingBagIcon className="size-4 transition-transform group-hover:scale-110" />
+      <ShoppingBagIcon className="size-4 transition-transform" />
 
       {itemCount > 0 ? (
         <span
@@ -36,6 +36,6 @@ export function CartButton({ className }: Props) {
           {itemCount > 99 ? "99+" : itemCount}
         </span>
       ) : null}
-    </button>
+    </Button>
   );
 }
