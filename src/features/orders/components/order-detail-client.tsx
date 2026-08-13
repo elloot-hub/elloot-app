@@ -16,12 +16,13 @@ import {
   deliverOrder,
   fetchOrder,
   startCheckout,
+  syncEfiPayment,
 } from "@/features/orders/api";
 import {
   orderStatusLabel,
   orderStatusTone,
 } from "@/features/orders/labels";
-import type { Order, SandboxCheckout } from "@/features/orders/types";
+import type { Order, OrderCheckout } from "@/features/orders/types";
 import { useAuth } from "@/features/auth/context";
 import { ApiError } from "@/lib/api/errors";
 import { formatBRLFromCents } from "@/lib/format";
@@ -40,7 +41,7 @@ type Props = {
 export function OrderDetailClient({ orderId }: Props) {
   const { user } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
-  const [checkout, setCheckout] = useState<SandboxCheckout | null>(null);
+  const [checkout, setCheckout] = useState<OrderCheckout | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionPending, setActionPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,18 +59,7 @@ export function OrderDetailClient({ orderId }: Props) {
       setLoading(true);
       setError(null);
       try {
-        const next = await refresh();
-        if (cancelled) return;
-        if (next.status === "PENDING_PAYMENT" && next.payment?.providerRef) {
-          setCheckout({
-            provider: next.payment.provider,
-            providerRef: next.payment.providerRef,
-            amountCents: next.payment.amountCents,
-            expiresAt: next.expiresAt ?? new Date().toISOString(),
-            instructions:
-              "Ambiente sandbox: confirme o pagamento abaixo para simular o PIX.",
-          });
-        }
+        await refresh();
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -87,8 +77,66 @@ export function OrderDetailClient({ orderId }: Props) {
     };
   }, [refresh]);
 
+  useEffect(() => {
+    if (!order || order.status !== "PENDING_PAYMENT" || !user) return;
+    if (user.id !== order.buyer.id) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { checkout: next } = await startCheckout(order.id);
+        if (!cancelled) setCheckout(next);
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof ApiError
+              ? err.message
+              : "Não foi possível iniciar o pagamento.",
+          );
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [order, user]);
+
+  useEffect(() => {
+    if (
+      !checkout ||
+      checkout.provider !== "efi" ||
+      order?.status !== "PENDING_PAYMENT"
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const result = await syncEfiPayment(checkout.providerRef);
+        if (cancelled || !result.orderId) return;
+        setMessage("Pagamento confirmado. Escrow ativado.");
+        await refresh();
+      } catch {
+        // Ignora falhas transitórias do polling.
+      }
+    };
+
+    void poll();
+    const intervalId = window.setInterval(() => void poll(), 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [checkout, order?.status, refresh]);
+
   const isBuyer = Boolean(user && order && user.id === order.buyer.id);
   const isSeller = Boolean(user && order && user.id === order.seller.id);
+  const isEfiCheckout = checkout?.provider === "efi";
+  const isSandboxCheckout = checkout?.provider === "sandbox";
 
   async function runAction(action: () => Promise<void>) {
     setActionPending(true);
@@ -219,53 +267,77 @@ export function OrderDetailClient({ orderId }: Props) {
               <WalletIcon className="mt-0.5 size-4 shrink-0 text-primary" />
               <div className="space-y-1">
                 <p className="font-medium">
-                  {process.env.NODE_ENV === "production"
-                    ? "Aguardando pagamento"
-                    : "Pagamento sandbox"}
+                  {isEfiCheckout ? "Pague com PIX" : "Pagamento sandbox"}
                 </p>
                 <p className="text-muted-foreground text-pretty">
-                  {process.env.NODE_ENV === "production"
-                    ? "O pagamento PIX real será integrado em breve. Em produção o confirm sandbox está desligado."
-                    : (checkout?.instructions ??
-                      "Simule o PIX para avançar o pedido.")}
+                  {checkout?.instructions ??
+                    (isEfiCheckout
+                      ? "Gerando cobrança PIX…"
+                      : "Simule o PIX para avançar o pedido.")}
                 </p>
               </div>
             </div>
-            {process.env.NODE_ENV !== "production" ? (
-              <>
-                {checkout?.pixCopyPaste ? (
-                  <code className="block break-all rounded-xl bg-muted/50 p-3 font-mono text-xs">
-                    {checkout.pixCopyPaste}
-                  </code>
-                ) : null}
-                <p className="font-mono text-xs text-muted-foreground">
-                  Ref:{" "}
-                  {checkout?.providerRef ?? order.payment?.providerRef ?? "—"}
-                </p>
-                <Button
-                  className="h-11 w-full rounded-xl"
-                  disabled={actionPending || !order.payment?.providerRef}
-                  onClick={() =>
-                    void runAction(async () => {
-                      const ref =
-                        order.payment?.providerRef ?? checkout?.providerRef;
-                      if (!ref) {
-                        const { checkout: next } = await startCheckout(
-                          order.id,
-                        );
-                        setCheckout(next);
-                        await confirmSandboxPayment(next.providerRef);
-                      } else {
-                        await confirmSandboxPayment(ref);
-                      }
-                      setMessage("Pagamento confirmado. Escrow ativado.");
-                    })
-                  }
-                >
-                  {actionPending ? "Confirmando…" : "Simular pagamento PIX"}
-                </Button>
-              </>
+
+            {checkout?.qrCodeImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={checkout.qrCodeImage}
+                alt="QR Code PIX"
+                className="mx-auto max-w-[200px] rounded-lg border border-border/60 bg-white p-2"
+              />
             ) : null}
+
+            {checkout?.pixCopyPaste ? (
+              <code className="block break-all rounded-xl bg-muted/50 p-3 font-mono text-xs">
+                {checkout.pixCopyPaste}
+              </code>
+            ) : null}
+
+            {checkout?.providerRef ? (
+              <p className="font-mono text-xs text-muted-foreground">
+                Ref: {checkout.providerRef}
+              </p>
+            ) : null}
+
+            {isEfiCheckout ? (
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-10 w-full rounded-xl"
+                disabled={actionPending || !checkout?.providerRef}
+                onClick={() =>
+                  void runAction(async () => {
+                    if (!checkout?.providerRef) return;
+                    const result = await syncEfiPayment(checkout.providerRef);
+                    if (result.orderId) {
+                      setMessage("Pagamento confirmado. Escrow ativado.");
+                    } else {
+                      setMessage("Pagamento ainda não identificado. Tente novamente em instantes.");
+                    }
+                  })
+                }
+              >
+                {actionPending ? "Verificando…" : "Já paguei — verificar"}
+              </Button>
+            ) : null}
+
+            {isSandboxCheckout ? (
+              <Button
+                className="h-11 w-full rounded-xl"
+                disabled={actionPending || !checkout?.providerRef}
+                onClick={() =>
+                  void runAction(async () => {
+                    const ref = checkout?.providerRef;
+                    if (!ref) return;
+                    await confirmSandboxPayment(ref);
+                    setMessage("Pagamento confirmado. Escrow ativado.");
+                  })
+                }
+              >
+                {actionPending ? "Confirmando…" : "Simular pagamento PIX"}
+              </Button>
+            ) : null}
+
             <Button
               variant="outline"
               className="h-10 w-full rounded-xl"

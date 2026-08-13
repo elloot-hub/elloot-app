@@ -183,10 +183,6 @@
   .animate-category-marquee {
     animation: elloot-category-marquee 40s linear infinite;
   }
-
-  .surface-panel {
-    @apply rounded-2xl border border-border/70 bg-card/70 shadow-[0_20px_60px_-40px_hsl(222_40%_4%/0.55)] backdrop-blur-sm;
-  }
 }
 
 @keyframes elloot-rise {
@@ -232,4 +228,4 @@
     background-position: 100% 50%;
   }
 }
-
+

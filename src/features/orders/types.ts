@@ -77,14 +77,18 @@ export type Order = {
   } | null;
 };
 
-export type SandboxCheckout = {
-  provider: "sandbox" | string;
+export type OrderCheckout = {
+  provider: string;
   providerRef: string;
   amountCents: number;
-  expiresAt: string;
+  expiresAt: string | null;
   pixCopyPaste?: string | null;
+  qrCodeImage?: string | null;
   instructions?: string | null;
 };
+
+/** @deprecated Use OrderCheckout */
+export type SandboxCheckout = OrderCheckout;
 
 export type CreateOrderResponse = {
   order: Order;

@@ -1,7 +1,7 @@
 "use client";
 
 import { ShoppingBagIcon } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { useCart } from "@/features/cart/context";
 import { cn } from "@/lib/utils";
 
@@ -10,28 +10,30 @@ type Props = {
 };
 
 export function CartButton({ className }: Props) {
-  const { itemCount, toggleCart, isOpen } = useCart();
+  const { itemCount, toggleCart, isOpen, ready } = useCart();
+  const showBadge = ready && itemCount > 0;
 
   return (
     <Button
       type="button"
       onClick={toggleCart}
-      aria-label={`Carrinho de compras (${itemCount} itens)`}
+      aria-label={`Carrinho de compras (${ready ? itemCount : 0} itens)`}
       aria-expanded={isOpen}
       title="Carrinho de compras"
+      variant="default"
+      size="icon-sm"
       className={cn(
-        buttonVariants({ variant: "default", size: "icon-sm" }),
-        "relative select-none",
-        isOpen && "border-primary text-primary bg-primary/10",
+        "relative rounded-full",
+        isOpen && "text-primary bg-primary/10",
         className,
       )}
     >
-      <ShoppingBagIcon className="size-4 transition-transform" />
+      <ShoppingBagIcon className="size-4" />
 
-      {itemCount > 0 ? (
+      {showBadge ? (
         <span
           aria-hidden
-          className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-mono text-[10px] font-bold text-primary-foreground shadow-md ring-2 ring-background animate-in zoom-in-50 duration-200"
+          className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground ring-2 ring-background animate-in zoom-in-50 duration-200"
         >
           {itemCount > 99 ? "99+" : itemCount}
         </span>

@@ -16,6 +16,7 @@ import type { SellerPublic } from "@/types/api";
 import { usePresence } from "@/features/realtime";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   seller: SellerPublic;
@@ -85,7 +86,6 @@ export function ListingSellerCard({ seller, className }: Props) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           {seller.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={seller.avatarUrl}
               alt=""
@@ -109,7 +109,7 @@ export function ListingSellerCard({ seller, className }: Props) {
               ) : null}
               <span
                 className={cn(
-                  "rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase",
+                  "rounded-full px-1.5 py-0.5 text-[10px] font-semibold lowercase",
                   isOnline
                     ? "bg-emerald-500/15 text-emerald-400"
                     : "bg-muted text-muted-foreground",
@@ -144,45 +144,20 @@ export function ListingSellerCard({ seller, className }: Props) {
           </div>
         </div>
 
-        <Link
-          href={routes.sellerProfile(seller.id)}
-          className="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-full border border-border/70 px-3 text-[11px] font-medium transition-colors hover:bg-muted/40 hover:border-primary/50 hover:text-primary"
-        >
-          Ver perfil
-          <ChevronRightIcon className="size-3.5" />
+        <Link href={routes.sellerProfile(seller.id)}>
+          <Button variant="outline" size="xs">
+            Ver perfil
+            <ChevronRightIcon className="size-3.5" />
+          </Button>
         </Link>
       </div>
 
-      <ul className="grid grid-cols-3 gap-1.5">
-        <VerifyChip
-          icon={<MailIcon className="size-3" />}
-          label="E-mail"
-          ok={verifications.email}
-        />
-        <VerifyChip
-          icon={<PhoneIcon className="size-3" />}
-          label="Tel."
-          ok={verifications.phone}
-        />
-        <VerifyChip
-          icon={<ShieldCheckIcon className="size-3" />}
-          label="Docs"
-          ok={verifications.documents}
-        />
-      </ul>
+      
     </section>
   );
 }
 
-function VerifyChip({
-  icon,
-  label,
-  ok,
-}: {
-  icon: ReactNode;
-  label: string;
-  ok: boolean;
-}) {
+function VerifyChip({ icon, label, ok, }: { icon: ReactNode; label: string; ok: boolean; }) {
   return (
     <li
       className={cn(

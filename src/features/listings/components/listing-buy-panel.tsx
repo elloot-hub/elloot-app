@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { BadgeCheckIcon, CheckCircle2Icon, CreditCardIcon, ShieldCheckIcon, ShoppingBagIcon, } from "lucide-react";
-import { FaTruckFast } from "react-icons/fa6";
 import { Button } from "@/components/ui/button";
 import { FavoriteButton } from "@/features/favorites";
 import { BuyEscrowButton } from "@/features/orders/components/buy-escrow-button";
 import { OfferSelectMenu } from "@/features/listings/components/offer-select-menu";
 import { useCart } from "@/features/cart";
+import { useAuth } from "@/features/auth/context";
 import { formatBRLFromCents } from "@/lib/format";
 import type { ListingDetail as ListingDetailType, ListingOffer, } from "@/types/api";
 
@@ -17,10 +17,10 @@ type Props = {
 
 export function ListingBuyPanel({ listing }: Props) {
   const { addItem } = useCart();
+  const { user } = useAuth();
   const [added, setAdded] = useState(false);
 
   const isDynamic = listing.listingModel === "DYNAMIC";
-  const isAuto = listing.deliveryMode === "AUTO";
   const offers = useMemo(
     () =>
       (listing.offers ?? [])
@@ -31,32 +31,39 @@ export function ListingBuyPanel({ listing }: Props) {
     [listing.offers],
   );
 
-  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(
-    () => offers[0]?.id ?? null,
-  );
-
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(() => offers[0]?.id ?? null,);
   const selectedOffer: ListingOffer | null = offers.find((o) => o.id === selectedOfferId) ?? offers[0] ?? null;
-  const selectedIsAuto = isDynamic ? (selectedOffer?.deliveryMode ?? listing.deliveryMode) === "AUTO" : isAuto;
   const displayPrice = isDynamic ? (selectedOffer?.priceCents ?? listing.priceCents) : listing.priceCents;
   const canBuy = listing.status === "ACTIVE" && (!isDynamic || Boolean(selectedOffer)) && (isDynamic ? (selectedOffer?.stockQuantity ?? 0) > 0 : listing.stockQuantity > 0);
   const stockLabel = isDynamic ? selectedOffer ? `${selectedOffer.stockQuantity} em estoque` : "Sem estoque" : `${listing.stockQuantity} em estoque`;
 
+  const isOwnListing = Boolean(user && user.id === listing.seller.id);
   const emailOk = listing.seller.verifications?.email ?? false;
   const docsOk = listing.seller.verifications?.documents ?? false;
 
   const handleAddToCart = () => {
-    const itemTitle = isDynamic && selectedOffer ? `${listing.title} - ${selectedOffer.title}` : listing.title;
+    if (isOwnListing || !canBuy) return;
+
+    const itemTitle =
+      isDynamic && selectedOffer
+        ? `${listing.title} - ${selectedOffer.title}`
+        : listing.title;
+
     addItem({
-      id: isDynamic && selectedOffer ? `${listing.id}-${selectedOffer.id}` : listing.id,
+      listingId: listing.id,
+      offerId: isDynamic ? selectedOffer?.id : undefined,
       title: itemTitle,
-      price: displayPrice / 100,
+      priceCents: displayPrice,
       image: listing.media[0]?.url || "/elloot-navbar.png",
       category: listing.category?.name || "Marketplace",
+      sellerId: listing.seller.id,
       seller: {
         name: listing.seller.name || "Vendedor",
         verified: Boolean(emailOk || docsOk),
       },
-      stock: isDynamic && selectedOffer ? selectedOffer.stockQuantity : listing.stockQuantity,
+      stock: isDynamic
+        ? selectedOffer?.stockQuantity
+        : listing.stockQuantity,
     });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
@@ -90,32 +97,44 @@ export function ListingBuyPanel({ listing }: Props) {
       ) : null}
 
       {canBuy ? (
-        <div className="space-y-2.5">
-          <BuyEscrowButton
-            listingId={listing.id}
-            sellerId={listing.seller.id}
-            offerId={isDynamic ? selectedOffer?.id : undefined}
-            priceLabel={formatBRLFromCents(displayPrice)}
-          />
-          <Button
-            type="button"
-            variant="secondary"
-            size="lg"
-            onClick={handleAddToCart}
-            className="w-full gap-2 font-semibold"
-          >
-            {added ? (
-              <>
-                <CheckCircle2Icon className="size-4 text-emerald-500" />
-                Adicionado ao Carrinho
-              </>
-            ) : (
-              <>
-                <ShoppingBagIcon className="size-4" />
-                Adicionar ao carrinho
-              </>
+        <div className="space-y-2">
+          <div className="flex items-stretch gap-2">
+            <BuyEscrowButton
+              listingId={listing.id}
+              sellerId={listing.seller.id}
+              offerId={isDynamic ? selectedOffer?.id : undefined}
+              priceLabel={formatBRLFromCents(displayPrice)}
+              showHint={false}
+              className="min-w-0 flex-[1.4]"
+              buttonClassName="h-11"
+            />
+            {isOwnListing ? null : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAddToCart}
+                aria-label={
+                  added ? "Adicionado ao carrinho" : "Adicionar ao carrinho"
+                }
+                className="h-11 min-w-11 flex-1 gap-2 px-3 sm:flex-[0.9] sm:px-4"
+              >
+                {added ? (
+                  <CheckCircle2Icon className="size-4 shrink-0 text-emerald-500" />
+                ) : (
+                  <ShoppingBagIcon className="size-4 shrink-0" />
+                )}
+                <span className="truncate text-sm">
+                  <span className="sm:hidden">{added ? "Ok" : "Carrinho"}</span>
+                  <span className="hidden sm:inline">
+                    {added ? "Adicionado" : "Adicionar ao carrinho"}
+                  </span>
+                </span>
+              </Button>
             )}
-          </Button>
+          </div>
+          <p className="text-center text-xs text-muted-foreground">
+            O pagamento fica retido até a confirmação da entrega.
+          </p>
         </div>
       ) : (
         <p className="rounded-md border border-border/50 px-3 py-3 text-center text-sm text-muted-foreground">

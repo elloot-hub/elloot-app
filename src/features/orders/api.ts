@@ -2,7 +2,7 @@ import { api } from "@/lib/api/client";
 import type {
   CreateOrderResponse,
   Order,
-  SandboxCheckout,
+  OrderCheckout,
 } from "@/features/orders/types";
 
 export async function createOrder(listingId: string, offerId?: string) {
@@ -21,9 +21,20 @@ export async function fetchOrder(id: string) {
 }
 
 export async function startCheckout(orderId: string) {
-  return api.post<{ checkout: SandboxCheckout }>(
+  return api.post<{ checkout: OrderCheckout }>(
     `/api/orders/${orderId}/checkout`,
   );
+}
+
+export async function syncEfiPayment(providerRef: string) {
+  return api.post<{
+    ok: boolean;
+    paid?: boolean;
+    status?: string;
+    alreadyPaid?: boolean;
+    orderId?: string;
+    releaseAt?: string;
+  }>("/api/payments/efi/sync", { providerRef });
 }
 
 export async function confirmSandboxPayment(providerRef: string) {

@@ -1,59 +1,78 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type { CartContextType, CartItem } from "./types";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  cartLineId,
+  isCartItem,
+  type CartAddInput,
+  type CartContextType,
+  type CartItem,
+} from "./types";
 
-const CART_STORAGE_KEY = "elloot_cart_items_v1";
+const CART_STORAGE_KEY = "elloot_cart_items_v2";
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+  const [ready, setReady] = useState(false);
 
-  // Hydrate from localStorage if available
   useEffect(() => {
-    setIsMounted(true);
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored);
+        const parsed: unknown = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          setItems(parsed);
+          setItems(parsed.filter(isCartItem));
         }
       }
     } catch (e) {
       console.error("Erro ao carregar carrinho:", e);
+    } finally {
+      setReady(true);
     }
   }, []);
 
-  // Save to localStorage
   useEffect(() => {
-    if (!isMounted) return;
+    if (!ready) return;
     try {
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
     } catch (e) {
       console.error("Erro ao salvar carrinho:", e);
     }
-  }, [items, isMounted]);
+  }, [items, ready]);
 
-  const openCart = () => setIsOpen(true);
-  const closeCart = () => setIsOpen(false);
-  const toggleCart = () => setIsOpen((prev) => !prev);
+  const openCart = useCallback(() => setIsOpen(true), []);
+  const closeCart = useCallback(() => setIsOpen(false), []);
+  const toggleCart = useCallback(() => setIsOpen((prev) => !prev), []);
 
-  const addItem = (newItem: Omit<CartItem, "quantity"> & { quantity?: number }) => {
-    const qtyToAdd = newItem.quantity || 1;
+  const addItem = useCallback((newItem: CartAddInput) => {
+    const id = cartLineId(newItem.listingId, newItem.offerId);
+    const qtyToAdd = newItem.quantity ?? 1;
+
     setItems((prevItems) => {
-      const existingIndex = prevItems.findIndex((i) => i.id === newItem.id);
+      const existingIndex = prevItems.findIndex((i) => i.id === id);
       if (existingIndex > -1) {
         const updated = [...prevItems];
         const existing = updated[existingIndex];
-        const newQty = existing.quantity + qtyToAdd;
         const maxStock = existing.stock ?? 99;
         updated[existingIndex] = {
           ...existing,
-          quantity: Math.min(newQty, maxStock),
+          title: newItem.title,
+          priceCents: newItem.priceCents,
+          image: newItem.image,
+          category: newItem.category,
+          seller: newItem.seller,
+          stock: newItem.stock ?? existing.stock,
+          quantity: Math.min(existing.quantity + qtyToAdd, maxStock),
         };
         return updated;
       }
@@ -61,76 +80,79 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         ...prevItems,
         {
           ...newItem,
-          quantity: qtyToAdd,
+          id,
+          quantity: Math.min(qtyToAdd, newItem.stock ?? 99),
         },
       ];
     });
     setIsOpen(true);
-  };
+  }, []);
 
-  const removeItem = (id: string) => {
+  const removeItem = useCallback((id: string) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
-  };
+  }, []);
 
-  const updateQuantity = (id: string, quantity: number) => {
+  const updateQuantity = useCallback((id: string, quantity: number) => {
     if (quantity <= 0) {
-      removeItem(id);
+      setItems((prev) => prev.filter((item) => item.id !== id));
       return;
     }
     setItems((prev) =>
       prev.map((item) => {
-        if (item.id === id) {
-          const maxStock = item.stock ?? 99;
-          return { ...item, quantity: Math.min(quantity, maxStock) };
-        }
-        return item;
-      })
+        if (item.id !== id) return item;
+        const maxStock = item.stock ?? 99;
+        return { ...item, quantity: Math.min(quantity, maxStock) };
+      }),
     );
-  };
+  }, []);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setItems([]);
-  };
+  }, []);
 
-  const itemCount = useMemo(() => {
-    return items.reduce((acc, item) => acc + item.quantity, 0);
-  }, [items]);
+  const itemCount = useMemo(
+    () => items.reduce((acc, item) => acc + item.quantity, 0),
+    [items],
+  );
 
-  const subtotal = useMemo(() => {
-    return items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  }, [items]);
+  const subtotalCents = useMemo(
+    () => items.reduce((acc, item) => acc + item.priceCents * item.quantity, 0),
+    [items],
+  );
 
-  const serviceFee = useMemo(() => {
-    if (items.length === 0) return 0;
-    // Standard escrow/service fee R$ 2.50 or 2.5% whichever is appropriate
-    return 2.50;
-  }, [items]);
-
-  const total = useMemo(() => {
-    if (items.length === 0) return 0;
-    return subtotal + serviceFee;
-  }, [subtotal, serviceFee, items]);
+  const value = useMemo<CartContextType>(
+    () => ({
+      items,
+      isOpen,
+      ready,
+      openCart,
+      closeCart,
+      toggleCart,
+      addItem,
+      removeItem,
+      updateQuantity,
+      clearCart,
+      itemCount,
+      subtotalCents,
+    }),
+    [
+      items,
+      isOpen,
+      ready,
+      openCart,
+      closeCart,
+      toggleCart,
+      addItem,
+      removeItem,
+      updateQuantity,
+      clearCart,
+      itemCount,
+      subtotalCents,
+    ],
+  );
 
   return (
-    <CartContext.Provider
-      value={{
-        items,
-        isOpen,
-        openCart,
-        closeCart,
-        toggleCart,
-        addItem,
-        removeItem,
-        updateQuantity,
-        clearCart,
-        itemCount,
-        subtotal,
-        serviceFee,
-        total,
-      }}
-    >
-      {children}
-    </CartContext.Provider>
+    <CartContext.Provider value={value}>{children}</CartContext.Provider>
   );
 }
 

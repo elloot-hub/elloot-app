@@ -98,6 +98,7 @@ export function SiteHeader() {
                 Anunciar
               </Link>
             ) : null}
+            
             {user ? <NotificationsButton /> : null}
 
             {loading ? (

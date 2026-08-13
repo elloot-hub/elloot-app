@@ -7,6 +7,7 @@ import { useAuth } from "@/features/auth/context";
 import { ApiError } from "@/lib/api/errors";
 import { Button } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 type Props = {
   listingId: string;
@@ -14,9 +15,22 @@ type Props = {
   offerId?: string;
   priceLabel?: string;
   disabled?: boolean;
+  className?: string;
+  buttonClassName?: string;
+  /** When false, hides the escrow helper line under the button. */
+  showHint?: boolean;
 };
 
-export function BuyEscrowButton({ listingId, sellerId, offerId, priceLabel, disabled, }: Props) {
+export function BuyEscrowButton({
+  listingId,
+  sellerId,
+  offerId,
+  priceLabel,
+  disabled,
+  className,
+  buttonClassName,
+  showHint = true,
+}: Props) {
   const router = useRouter();
   const { user, loading } = useAuth();
   const [pending, setPending] = useState(false);
@@ -54,33 +68,44 @@ export function BuyEscrowButton({ listingId, sellerId, offerId, priceLabel, disa
     }
   }
 
+  const label = pending
+    ? "Criando…"
+    : isOwnListing
+      ? "Seu anúncio"
+      : !user
+        ? "Entrar"
+        : "Comprar";
+
+  const labelDesktop = pending
+    ? "Criando pedido…"
+    : isOwnListing
+      ? "Seu anúncio"
+      : !user
+        ? "Entrar para comprar"
+        : priceLabel
+          ? `Comprar por ${priceLabel}`
+          : "Comprar com escrow";
+
   return (
-    <div className="space-y-2">
+    <div className={cn("space-y-2", className)}>
       <Button
         type="button"
-        className="h-11 w-full rounded-xl"
+        className={cn("h-11 w-full", buttonClassName)}
         disabled={disabled || loading || pending || isOwnListing}
         onClick={() => void onBuy()}
       >
-        {pending
-          ? "Criando pedido…"
-          : isOwnListing
-            ? "Seu anúncio"
-            : user
-              ? priceLabel
-                ? `Comprar por ${priceLabel}`
-                : "Comprar com escrow"
-              : "Entrar para comprar"}
+        <span className="sm:hidden">{label}</span>
+        <span className="hidden sm:inline">{labelDesktop}</span>
       </Button>
       {error ? (
         <p className="text-center text-xs text-destructive" role="alert">
           {error}
         </p>
-      ) : (
+      ) : showHint ? (
         <p className="text-center text-xs text-muted-foreground">
           O pagamento fica retido até a confirmação da entrega.
         </p>
-      )}
+      ) : null}
     </div>
   );
 }
