@@ -7,6 +7,7 @@ import {
   fetchConversations,
   type ConversationSummary,
 } from "@/features/conversations";
+import { previewMessageBody } from "@/features/conversations/message-reply";
 import { ConversationsListSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
 import { ApiError } from "@/lib/api/errors";
 import { formatBRLFromCents } from "@/lib/format";
@@ -69,7 +70,9 @@ export function ConversationsListClient() {
     <ul className="divide-y divide-border/50 overflow-hidden rounded-md border border-border/60">
       {rows.map((c) => {
         const last = c.messages?.[0];
-        const preview = c.lastMessagePreview ?? last?.body;
+        const preview = previewMessageBody(
+          c.lastMessagePreview ?? last?.body ?? "",
+        );
         const stamp = c.lastMessageAt ?? c.updatedAt;
         const other =
           user?.id === c.order.buyerId ? c.order.seller : c.order.buyer;

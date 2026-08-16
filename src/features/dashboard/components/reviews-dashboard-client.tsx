@@ -11,7 +11,7 @@ import {
 } from "@/features/reviews/api";
 import { formatRelativeTime } from "@/features/listings/components/qa-utils";
 import { ApiError } from "@/lib/api/errors";
-import { MetricsSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
+import { DashboardListSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -59,7 +59,7 @@ export function ReviewsDashboardClient({ mode }: { mode: Mode }) {
     };
   }, [mode]);
 
-  if (loading) return <MetricsSkeleton />;
+  if (loading) return <DashboardListSkeleton />;
   if (error) return <p className="text-sm text-destructive">{error}</p>;
 
   return (

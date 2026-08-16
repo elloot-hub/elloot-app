@@ -10,11 +10,29 @@ function toApp(n: RealtimeNotification): AppNotification {
   return { ...n, read: Boolean(n.readAt) };
 }
 
-export async function fetchMyNotifications() {
-  const res = await api.get<{ notifications: RealtimeNotification[] }>(
-    "/api/notifications/mine",
+export async function fetchMyNotifications(opts?: {
+  cursor?: string;
+  take?: number;
+}) {
+  const params = new URLSearchParams();
+  if (opts?.cursor) params.set("cursor", opts.cursor);
+  if (opts?.take) params.set("take", String(opts.take));
+  const qs = params.toString();
+  const res = await api.get<{
+    notifications: RealtimeNotification[];
+    nextCursor: string | null;
+  }>(`/api/notifications/mine${qs ? `?${qs}` : ""}`);
+  return {
+    notifications: res.notifications.map(toApp),
+    nextCursor: res.nextCursor ?? null,
+  };
+}
+
+export async function fetchUnreadNotificationCount() {
+  const res = await api.get<{ unreadCount: number }>(
+    "/api/notifications/mine/unread-count",
   );
-  return { notifications: res.notifications.map(toApp) };
+  return res.unreadCount;
 }
 
 export async function markNotificationRead(id: string) {

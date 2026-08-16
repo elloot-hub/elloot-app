@@ -103,30 +103,34 @@ export function OrderListSkeleton({ rows = 4 }: { rows?: number }) {
 }
 
 /** Meus anúncios */
-export function ListingsSkeleton({ rows = 4 }: { rows?: number }) {
+export function ListingsSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <ul
-      className="space-y-3"
+    <div
+      className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
       aria-busy="true"
       aria-label="Carregando anúncios"
     >
       {Array.from({ length: rows }).map((_, i) => (
-        <li key={i}>
-          <CardShell className="flex gap-3 sm:items-center">
-            <Skeleton className="size-16 shrink-0 rounded-md sm:size-20" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="h-4 w-64 max-w-full" />
-              <Skeleton className="h-3 w-40" />
-              <div className="flex gap-2">
-                <Skeleton className="h-5 w-16 rounded-md" />
-                <Skeleton className="h-5 w-20 rounded-md" />
-              </div>
+        <CardShell key={i} className="overflow-hidden p-0">
+          <Skeleton className="aspect-[16/10] w-full rounded-none" />
+          <div className="space-y-3 p-4">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-3 w-24" />
+            <div className="grid grid-cols-2 gap-2">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
             </div>
-            <Skeleton className="hidden h-6 w-20 sm:block" />
-          </CardShell>
-        </li>
+            <div className="flex gap-2 pt-2">
+              <Skeleton className="h-8 flex-1" />
+              <Skeleton className="h-8 flex-1" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </CardShell>
       ))}
-    </ul>
+    </div>
   );
 }
 
@@ -155,16 +159,104 @@ export function FavoritesSkeleton({ cards = 6 }: { cards?: number }) {
 /** Métricas */
 export function MetricsSkeleton() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Carregando métricas">
-      <Skeleton className="h-4 w-full max-w-lg" />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
+    <div className="space-y-6" aria-busy="true" aria-label="Carregando métricas">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <Skeleton className="h-4 w-72 max-w-full" />
+        <Skeleton className="h-9 w-64 rounded-md" />
+      </div>
+      <div className="flex gap-2 border-b border-border/60 pb-2">
+        <Skeleton className="h-8 w-24" />
+        <Skeleton className="h-8 w-20" />
+        <Skeleton className="h-8 w-16" />
+        <Skeleton className="h-8 w-28" />
+      </div>
+      <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
           <CardShell key={i} className="space-y-3">
             <Skeleton className="h-3 w-28" />
-            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-3 w-32" />
           </CardShell>
         ))}
       </div>
+      <CardShell className="space-y-3 p-5">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-[240px] w-full rounded-md" />
+      </CardShell>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <CardShell className="space-y-3 p-5">
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-24 w-full" />
+        </CardShell>
+        <CardShell className="space-y-3 p-5">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-24 w-full" />
+        </CardShell>
+      </div>
+    </div>
+  );
+}
+
+/** Conteúdo interno das abas de métricas (tabs/filtros já visíveis). */
+export function MetricsTabContentSkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true" aria-label="Carregando conteúdo">
+      <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <CardShell key={i} className="space-y-3">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-8 w-24" />
+            <Skeleton className="h-3 w-32" />
+          </CardShell>
+        ))}
+      </div>
+      <CardShell className="space-y-3 p-5">
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="h-[200px] w-full rounded-md" />
+      </CardShell>
+    </div>
+  );
+}
+
+/** Formulário de editar/criar anúncio */
+export function SellFormSkeleton() {
+  return (
+    <div className="mx-auto max-w-3xl space-y-6 py-10" aria-busy="true" aria-label="Carregando anúncio">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-72 max-w-full" />
+      </div>
+      <div className="flex gap-2">
+        <Skeleton className="h-9 w-24 rounded-md" />
+        <Skeleton className="h-9 w-24 rounded-md" />
+        <Skeleton className="h-9 w-24 rounded-md" />
+        <Skeleton className="h-9 w-24 rounded-md" />
+      </div>
+      <CardShell className="space-y-4 p-5">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-28 w-full" />
+        <Skeleton className="h-10 w-40" />
+      </CardShell>
+    </div>
+  );
+}
+
+/** Lista genérica (reviews / perguntas) */
+export function DashboardListSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="space-y-3" aria-busy="true" aria-label="Carregando lista">
+      {Array.from({ length: rows }).map((_, i) => (
+        <CardShell key={i} className="flex items-start justify-between gap-3 p-4">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-48 max-w-full" />
+            <Skeleton className="h-3 w-full max-w-md" />
+            <Skeleton className="h-3 w-32" />
+          </div>
+          <Skeleton className="h-8 w-20 shrink-0" />
+        </CardShell>
+      ))}
     </div>
   );
 }
@@ -225,17 +317,20 @@ export function ConversationsListSkeleton({ rows = 5 }: { rows?: number }) {
 export function ConversationThreadSkeleton() {
   return (
     <div
-      className="flex min-h-[min(70vh,640px)] flex-col overflow-hidden rounded-md border border-border/60 bg-card/30"
+      className="flex h-full min-h-[min(70vh,640px)] flex-col overflow-hidden rounded-md border border-border/60 bg-card/30"
       aria-busy="true"
       aria-label="Carregando conversa"
     >
       <div className="flex items-start justify-between gap-3 border-b border-border/60 px-3 py-3 sm:px-4">
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-5 w-56" />
-          <Skeleton className="h-3 w-44" />
+        <div className="flex items-start gap-3">
+          <Skeleton className="size-11 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-3 w-56" />
+            <Skeleton className="h-3 w-40" />
+          </div>
         </div>
-        <Skeleton className="h-8 w-24 shrink-0" />
+        <Skeleton className="h-8 w-32 shrink-0" />
       </div>
       <div className="flex-1 space-y-3 px-3 py-4 sm:px-4">
         <div className="flex justify-start">

@@ -4,7 +4,7 @@ import { RequireAuth } from "@/features/auth/components/require-auth";
 import { OrderDetailClient } from "@/features/orders/components/order-detail-client";
 
 export const metadata: Metadata = {
-  title: "Pedido",
+  title: "Pagamento do pedido",
 };
 
 type Props = {

@@ -12,6 +12,7 @@ import {
 import { useAuth } from "@/features/auth/context";
 import {
   fetchMyNotifications,
+  fetchUnreadNotificationCount,
   markAllNotificationsRead as apiMarkAll,
   markNotificationRead as apiMarkRead,
   type AppNotification,
@@ -27,7 +28,10 @@ type NotificationsContextValue = {
   items: AppNotification[];
   unreadCount: number;
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
   refresh: () => Promise<void>;
+  loadMore: () => Promise<void>;
   markRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
 };
@@ -40,24 +44,54 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { token } = useAuth();
   const { socket } = useRealtime();
   const [items, setItems] = useState<AppNotification[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!token) {
       setItems([]);
+      setNextCursor(null);
+      setUnreadCount(0);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const { notifications } = await fetchMyNotifications();
+      const [{ notifications, nextCursor: cursor }, count] = await Promise.all([
+        fetchMyNotifications({ take: 40 }),
+        fetchUnreadNotificationCount(),
+      ]);
       setItems(notifications);
+      setNextCursor(cursor);
+      setUnreadCount(count);
     } catch {
       // Keep previous list on transient errors.
     } finally {
       setLoading(false);
     }
   }, [token]);
+
+  const loadMore = useCallback(async () => {
+    if (!token || !nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const { notifications, nextCursor: cursor } = await fetchMyNotifications({
+        cursor: nextCursor,
+        take: 40,
+      });
+      setItems((prev) => {
+        const seen = new Set(prev.map((n) => n.id));
+        return [...prev, ...notifications.filter((n) => !seen.has(n.id))];
+      });
+      setNextCursor(cursor);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [token, nextCursor, loadingMore]);
 
   useEffect(() => {
     bindNotifySoundUnlock();
@@ -75,6 +109,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         playNotifySound();
         return [{ ...payload, read: Boolean(payload.readAt) }, ...prev];
       });
+      if (!payload.readAt) {
+        setUnreadCount((c) => c + 1);
+      }
     }
     socket.on("notification:new", onNew);
     return () => {
@@ -83,13 +120,19 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, [socket]);
 
   const markRead = useCallback(async (id: string) => {
+    let becameRead = false;
     setItems((prev) =>
-      prev.map((n) =>
-        n.id === id
-          ? { ...n, read: true, readAt: n.readAt ?? new Date().toISOString() }
-          : n,
-      ),
+      prev.map((n) => {
+        if (n.id !== id || n.read) return n;
+        becameRead = true;
+        return {
+          ...n,
+          read: true,
+          readAt: n.readAt ?? new Date().toISOString(),
+        };
+      }),
     );
+    if (becameRead) setUnreadCount((c) => Math.max(0, c - 1));
     try {
       await apiMarkRead(id);
     } catch {
@@ -102,6 +145,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setItems((prev) =>
       prev.map((n) => ({ ...n, read: true, readAt: n.readAt ?? now })),
     );
+    setUnreadCount(0);
     try {
       await apiMarkAll();
     } catch {
@@ -109,21 +153,29 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const unreadCount = useMemo(
-    () => items.filter((n) => !n.read).length,
-    [items],
-  );
-
   const value = useMemo(
     () => ({
       items,
       unreadCount,
       loading,
+      loadingMore,
+      hasMore: Boolean(nextCursor),
       refresh,
+      loadMore,
       markRead,
       markAllRead,
     }),
-    [items, unreadCount, loading, refresh, markRead, markAllRead],
+    [
+      items,
+      unreadCount,
+      loading,
+      loadingMore,
+      nextCursor,
+      refresh,
+      loadMore,
+      markRead,
+      markAllRead,
+    ],
   );
 
   return (

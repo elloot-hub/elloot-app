@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { DownloadIcon } from "lucide-react";
 import {
   fetchWallet,
   type WalletLedgerEntry,
@@ -8,6 +10,9 @@ import {
 import { ApiError } from "@/lib/api/errors";
 import { formatBRLFromCents } from "@/lib/format";
 import { WalletSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { routes } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 const TYPE_LABEL: Record<string, string> = {
   CREDIT_SALE: "Venda liberada",
@@ -16,6 +21,43 @@ const TYPE_LABEL: Record<string, string> = {
   REFUND: "Reembolso",
   ADJUSTMENT: "Ajuste",
 };
+
+function downloadWalletCsv(
+  balanceCents: number,
+  entries: WalletLedgerEntry[],
+) {
+  const rows: string[][] = [
+    ["Saldo atual (centavos)", String(balanceCents)],
+    [],
+    ["Data", "Tipo", "Descrição", "Valor (centavos)", "Saldo após"],
+    ...entries.map((entry) => [
+      entry.createdAt,
+      TYPE_LABEL[entry.type] ?? entry.type,
+      entry.description ?? "",
+      String(entry.amountCents),
+      String(entry.balanceAfter),
+    ]),
+  ];
+  const body = rows
+    .map((line) =>
+      line
+        .map((cell) => {
+          const raw = String(cell);
+          return /[",\n;]/.test(raw) ? `"${raw.replace(/"/g, '""')}"` : raw;
+        })
+        .join(";"),
+    )
+    .join("\n");
+  const blob = new Blob([`\uFEFF${body}`], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `elloot-extrato-${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
 
 export function WalletClient() {
   const [balanceCents, setBalanceCents] = useState(0);
@@ -72,9 +114,25 @@ export function WalletClient() {
         <p className="mt-2 text-3xl font-bold tracking-tight text-primary tabular-nums">
           {formatBRLFromCents(balanceCents)}
         </p>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Saque PIX será liberado na próxima etapa (chave em Conta).
-        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            href={routes.dashboardWithdrawals}
+            className={cn(buttonVariants({ size: "sm" }))}
+          >
+            Sacar
+          </Link>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => downloadWalletCsv(balanceCents, entries)}
+            disabled={entries.length === 0}
+          >
+            <DownloadIcon className="size-4" />
+            Exportar CSV
+          </Button>
+        </div>
       </div>
 
       <section className="space-y-3">

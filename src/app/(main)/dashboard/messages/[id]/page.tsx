@@ -18,7 +18,7 @@ export default async function DashboardConversationPage({ params }: Props) {
     <RequireAuth>
       <DashboardShell
         title="Conversa"
-        description="Troca de mensagens do pedido — atualiza a cada poucos segundos."
+        layout="chat"
         breadcrumb={["Conta", "Compras", "Mensagens", "Conversa"]}
       >
         <ConversationThreadClient conversationId={id} />

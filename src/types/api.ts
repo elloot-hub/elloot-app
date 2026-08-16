@@ -4,9 +4,11 @@ export type KycStatus = "NONE" | "PENDING" | "APPROVED" | "REJECTED";
 
 export type ListingStatus =
   | "DRAFT"
+  | "PENDING_REVIEW"
   | "ACTIVE"
   | "PAUSED"
   | "SOLD"
+  | "REJECTED"
   | "REMOVED";
 
 export type ListingModel = "NORMAL" | "DYNAMIC" | "SERVICE";

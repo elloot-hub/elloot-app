@@ -2,16 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ClipboardEvent,
-  type KeyboardEvent,
-  type ChangeEvent,
-} from "react";
-import { CheckIcon, ChevronRightIcon, ImagePlusIcon, LayersIcon, Loader2Icon, PackageIcon, PlusCircle, StarIcon, Trash2Icon, XIcon, } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ChangeEvent, } from "react";
+import { CheckIcon, ChevronDownIcon, ChevronRightIcon, GripVerticalIcon, ImagePlusIcon, LayersIcon, Loader2Icon, ArrowDownIcon, ArrowUpIcon, PackageIcon, PlusCircle, StarIcon, Trash2Icon, XIcon, } from "lucide-react";
+import { SellFormSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
 
 import { Container } from "@/components/layout/container";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -21,18 +14,14 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
 import { useAuth } from "@/features/auth/context";
-import {
-  fetchListingCategories,
-  fetchProductTypes,
-  type ProductTypeOption,
-} from "@/features/catalog/api";
-import { createListing } from "@/features/listings/api";
+import { fetchListingCategories, fetchProductTypes, type ProductTypeOption, } from "@/features/catalog/api";
+import { createListing, fetchListing, reorderListingOffers, updateListing } from "@/features/listings/api";
 import { SellStepper, type SellStepId, } from "@/features/listings/components/sell-stepper";
 import { uploadMedia } from "@/features/media/api";
 import { ApiError } from "@/lib/api/errors";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
-import type { Category, ListingProductType } from "@/types/api";
+import type { Category, ListingDetail, ListingProductType } from "@/types/api";
 
 const MAX_MEDIA = 5;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -140,17 +129,20 @@ type AdKind = "simple" | "dynamic";
 
 type PendingImage = {
   id: string;
-  file: File;
   previewUrl: string;
+  file?: File;
+  existingUrl?: string;
 };
 
 type OfferDraft = {
   id: string;
+  serverId?: string;
   title: string;
   price: string;
   delivery: DeliveryMode;
   stock: string;
   autoStock: string;
+  existingStockQty?: number;
   active: boolean;
 };
 
@@ -164,6 +156,10 @@ function parsePriceToCents(raw: string): number | null {
   return cents;
 }
 
+function formatPriceMaskFromCents(cents: number) {
+  return formatPriceMask(String(cents));
+}
+
 function formatPriceMask(raw: string): string {
   const digits = raw.replace(/\D/g, "").replace(/^0+(?=\d)/, "").slice(0, 10);
   if (!digits) return "";
@@ -172,6 +168,62 @@ function formatPriceMask(raw: string): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function findCategoryPath(
+  nodes: Category[],
+  targetId: string,
+  path: string[] = [],
+): string[] | null {
+  for (const node of nodes) {
+    const next = [...path, node.id];
+    if (node.id === targetId) return next;
+    const nested = findCategoryPath(node.children ?? [], targetId, next);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function applyListingToForm(listing: ListingDetail) {
+  const isDynamic = listing.listingModel === "DYNAMIC";
+  const deliveryMode =
+    listing.deliveryMode === "AUTO" ? "auto" : ("manual" as DeliveryMode);
+
+  return {
+    title: listing.title,
+    description: listing.description,
+    productType: (listing.productType ?? "") as ListingProductType | "",
+    adKind: isDynamic ? ("dynamic" as AdKind) : ("simple" as AdKind),
+    price: isDynamic ? "" : formatPriceMaskFromCents(listing.priceCents),
+    delivery: deliveryMode,
+    stock: isDynamic ? "1" : String(listing.stockQuantity),
+    autoStock: "",
+    existingStockQty: listing.stockQuantity,
+    offers:
+      isDynamic && listing.offers?.length
+        ? listing.offers.map((offer) => ({
+          id: crypto.randomUUID(),
+          serverId: offer.id,
+          title: offer.title,
+          price: formatPriceMaskFromCents(offer.priceCents),
+          delivery:
+            offer.deliveryMode === "AUTO"
+              ? ("auto" as DeliveryMode)
+              : ("manual" as DeliveryMode),
+          stock: String(offer.stockQuantity),
+          autoStock: "",
+          existingStockQty: offer.stockQuantity,
+          active: true,
+        }))
+        : [newOffer(), { ...newOffer(), title: "" }],
+    images: listing.media.map((media) => ({
+      id: media.id,
+      previewUrl: media.url,
+      existingUrl: media.url,
+    })),
+    coverId: listing.media[0]?.id ?? null,
+    categoryId: listing.category.id,
+  };
 }
 
 function formatBrl(cents: number) {
@@ -348,12 +400,26 @@ function stepIndex(id: SellStepId) {
   );
 }
 
-export function SellPageContent() {
+type SellPageContentProps = {
+  mode?: "create" | "edit";
+  listingId?: string;
+};
+
+export function SellPageContent({
+  mode = "create",
+  listingId,
+}: SellPageContentProps = {}) {
   const router = useRouter();
   const { setSession } = useAuth();
+  const isEdit = mode === "edit" && Boolean(listingId);
 
   const [step, setStep] = useState<SellStepId>("product");
-  const [maxReached, setMaxReached] = useState(0);
+  const [maxReached, setMaxReached] = useState(isEdit ? 3 : 0);
+  const [initialLoading, setInitialLoading] = useState(isEdit);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [pendingCategoryId, setPendingCategoryId] = useState<string | null>(
+    null,
+  );
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -370,6 +436,67 @@ export function SellPageContent() {
     newOffer(),
     { ...newOffer(), title: "" },
   ]);
+  const [expandedOffers, setExpandedOffers] = useState<Record<string, boolean>>(
+    {},
+  );
+
+  const defaultOfferExpanded = !isEdit;
+
+  function isOfferExpanded(offerId: string) {
+    return expandedOffers[offerId] ?? defaultOfferExpanded;
+  }
+
+  function toggleOfferExpanded(offerId: string) {
+    setExpandedOffers((prev) => ({
+      ...prev,
+      [offerId]: !(prev[offerId] ?? defaultOfferExpanded),
+    }));
+  }
+
+  function addDynamicOffer() {
+    const created = newOffer();
+    setOffers((prev) => (prev.length >= 30 ? prev : [...prev, created]));
+    setExpandedOffers((prev) => ({ ...prev, [created.id]: true }));
+  }
+
+  function removeDynamicOffer(offerId: string) {
+    setOffers((prev) => prev.filter((o) => o.id !== offerId));
+    setExpandedOffers((prev) => {
+      const next = { ...prev };
+      delete next[offerId];
+      return next;
+    });
+  }
+
+  const [dragOfferId, setDragOfferId] = useState<string | null>(null);
+  const [offerReorderSaving, setOfferReorderSaving] = useState(false);
+
+  function reorderDynamicOffers(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+
+    setOffers((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(fromIndex, 1);
+      if (!item) return prev;
+      next.splice(toIndex, 0, item);
+
+      if (isEdit && listingId) {
+        const serverIds = next
+          .map((offer) => offer.serverId)
+          .filter((id): id is string => Boolean(id));
+        if (serverIds.length === next.length) {
+          setOfferReorderSaving(true);
+          void reorderListingOffers(listingId, serverIds)
+            .catch(() => {
+              setError("Não foi possível salvar a ordem das ofertas.");
+            })
+            .finally(() => setOfferReorderSaving(false));
+        }
+      }
+
+      return next;
+    });
+  }
 
   const [tree, setTree] = useState<Category[]>([]);
   const [treeLoading, setTreeLoading] = useState(true);
@@ -402,8 +529,62 @@ export function SellPageContent() {
   }, []);
 
   useEffect(() => {
+    if (!isEdit || !listingId) return;
+    let cancelled = false;
+    setInitialLoading(true);
+    setLoadError(null);
+    void fetchListing(listingId)
+      .then(({ listing }) => {
+        if (cancelled) return;
+        const form = applyListingToForm(listing);
+        setTitle(form.title);
+        setDescription(form.description);
+        setProductType(form.productType);
+        setAdKind(form.adKind);
+        setPrice(form.price);
+        setDelivery(form.delivery);
+        setStock(form.stock);
+        setAutoStock(form.autoStock);
+        setOffers(form.offers);
+        setImages(form.images);
+        setCoverId(form.coverId);
+        setPendingCategoryId(form.categoryId);
+        setExpandedOffers(
+          Object.fromEntries(form.offers.map((offer) => [offer.id, false])),
+        );
+        setMaxReached(3);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof ApiError
+              ? err.message
+              : "Não foi possível carregar o anúncio.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setInitialLoading(false);
+      });
     return () => {
-      for (const img of images) URL.revokeObjectURL(img.previewUrl);
+      cancelled = true;
+    };
+  }, [isEdit, listingId]);
+
+  useEffect(() => {
+    if (!pendingCategoryId || !tree.length) return;
+    const path = findCategoryPath(tree, pendingCategoryId);
+    if (path) {
+      setCategoryPath(path);
+      setPendingCategoryId(null);
+    }
+  }, [pendingCategoryId, tree]);
+
+  useEffect(() => {
+    return () => {
+      for (const img of images) {
+        if (img.file) URL.revokeObjectURL(img.previewUrl);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -543,10 +724,25 @@ export function SellPageContent() {
 
   function offerStockQty(offer: OfferDraft) {
     if (offer.delivery === "auto") {
-      return Math.max(0, countAutoLines(offer.autoStock));
+      const lines = countAutoLines(offer.autoStock);
+      if (lines >= 1) return lines;
+      if (offer.existingStockQty && offer.existingStockQty >= 1) {
+        return offer.existingStockQty;
+      }
+      return 0;
     }
     const qty = Number(offer.stock);
     return Number.isInteger(qty) && qty >= 1 ? qty : 0;
+  }
+
+  function resolveStockQuantityForSubmit(): number | undefined {
+    if (adKind !== "simple") return undefined;
+    if (delivery === "auto") {
+      const lines = countAutoLines(autoStock);
+      if (lines >= 1) return lines;
+      return undefined;
+    }
+    return Number(stock) || 1;
   }
 
   function validateOffers(): string | null {
@@ -558,7 +754,11 @@ export function SellPageContent() {
         const qty = Number(stock);
         if (!Number.isInteger(qty) || qty < 1) return "Estoque inválido.";
       } else if (countAutoLines(autoStock) < 1) {
-        return "Cole pelo menos um código/chave por linha para entrega automática.";
+        const hasExistingAutoStock =
+          isEdit && Number(stock) >= 1 && delivery === "auto";
+        if (!hasExistingAutoStock) {
+          return "Cole pelo menos um código/chave por linha para entrega automática.";
+        }
       }
       return null;
     }
@@ -640,11 +840,59 @@ export function SellPageContent() {
   function removeImage(id: string) {
     setImages((prev) => {
       const target = prev.find((img) => img.id === id);
-      if (target) URL.revokeObjectURL(target.previewUrl);
+      if (target?.file) URL.revokeObjectURL(target.previewUrl);
       const next = prev.filter((img) => img.id !== id);
       if (coverId === id) setCoverId(next[0]?.id ?? null);
       return next;
     });
+  }
+
+  async function buildMediaPayload() {
+    const ordered = [...images].sort((a, b) => {
+      if (a.id === coverId) return -1;
+      if (b.id === coverId) return 1;
+      return 0;
+    });
+    const mediaUrls: string[] = [];
+    for (const img of ordered) {
+      if (img.file) {
+        const { asset } = await uploadMedia({
+          file: img.file,
+          purpose: "LISTING",
+          visibility: "PUBLIC",
+        });
+        mediaUrls.push(asset.url);
+      } else if (img.existingUrl) {
+        mediaUrls.push(img.existingUrl);
+      }
+    }
+    return mediaUrls;
+  }
+
+  function buildOffersPayload() {
+    return offers
+      .filter((o) => o.active)
+      .map((o) => {
+        const payload: {
+          id?: string;
+          title: string;
+          priceCents: number;
+          stockQuantity?: number;
+          deliveryMode: "MANUAL" | "AUTO";
+        } = {
+          title: o.title.trim(),
+          priceCents: parsePriceToCents(o.price)!,
+          deliveryMode: o.delivery === "auto" ? "AUTO" : "MANUAL",
+        };
+        if (o.serverId) payload.id = o.serverId;
+        const autoLines = countAutoLines(o.autoStock);
+        if (o.delivery === "auto") {
+          if (autoLines >= 1) payload.stockQuantity = autoLines;
+        } else {
+          payload.stockQuantity = offerStockQty(o);
+        }
+        return payload;
+      });
   }
 
   async function submitListing() {
@@ -664,22 +912,30 @@ export function SellPageContent() {
     setPending(true);
     setError(null);
     try {
-      const ordered = [...images].sort((a, b) => {
-        if (a.id === coverId) return -1;
-        if (b.id === coverId) return 1;
-        return 0;
-      });
-      const mediaAssetIds: string[] = [];
-      for (const img of ordered) {
-        const { asset } = await uploadMedia({
-          file: img.file,
-          purpose: "LISTING",
-          visibility: "PUBLIC",
+      const mediaUrls = await buildMediaPayload();
+      const listingModel = adKind === "dynamic" ? "DYNAMIC" : "NORMAL";
+
+      if (isEdit && listingId) {
+        const stockQty = resolveStockQuantityForSubmit();
+        await updateListing(listingId, {
+          categoryId: selectedCategoryId,
+          title: title.trim(),
+          description: description.trim(),
+          productType: productType || null,
+          ...(adKind === "simple"
+            ? {
+              priceCents: parsePriceToCents(price)!,
+              deliveryMode: delivery === "auto" ? "AUTO" : "MANUAL",
+              ...(stockQty !== undefined ? { stockQuantity: stockQty } : {}),
+            }
+            : { offers: buildOffersPayload() }),
+          ...(isEdit || mediaUrls.length ? { mediaUrls } : {}),
         });
-        mediaAssetIds.push(asset.id);
+
+        router.push(routes.dashboardListings);
+        return;
       }
 
-      const listingModel = adKind === "dynamic" ? "DYNAMIC" : "NORMAL";
       const result = await createListing({
         categoryId: selectedCategoryId,
         title: title.trim(),
@@ -701,32 +957,50 @@ export function SellPageContent() {
         priceCents:
           adKind === "simple" ? parsePriceToCents(price)! : undefined,
         offers:
-          adKind === "dynamic"
-            ? offers
-              .filter((o) => o.active)
-              .map((o) => ({
-                title: o.title.trim(),
-                priceCents: parsePriceToCents(o.price)!,
-                stockQuantity: offerStockQty(o),
-                deliveryMode: o.delivery === "auto" ? "AUTO" : "MANUAL",
-              }))
-            : undefined,
-        mediaAssetIds,
+          adKind === "dynamic" ? buildOffersPayload() : undefined,
+        mediaUrls,
         publish: true,
       });
 
       await setSession();
+
+      if (result.moderation?.status === "PENDING_REVIEW") {
+        router.push(routes.dashboardListings);
+        return;
+      }
 
       router.push(routes.listing(result.listing.id));
     } catch (err) {
       setError(
         err instanceof ApiError
           ? err.message
-          : "Não foi possível publicar. Tente de novo.",
+          : isEdit
+            ? "Não foi possível salvar. Tente de novo."
+            : "Não foi possível publicar. Tente de novo.",
       );
     } finally {
       setPending(false);
     }
+  }
+
+  if (initialLoading) {
+    return <SellFormSkeleton />;
+  }
+
+  if (loadError) {
+    return (
+      <Container className="max-w-3xl space-y-4 py-12">
+        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {loadError}
+        </p>
+        <Link
+          href={routes.dashboardListings}
+          className={cn(buttonVariants({ variant: "outline" }))}
+        >
+          Voltar aos anúncios
+        </Link>
+      </Container>
+    );
   }
 
   return (
@@ -734,10 +1008,12 @@ export function SellPageContent() {
       <div className="space-y-6">
         <div className="text-center">
           <h1 className="font-medium sm:text-2xl">
-            Criar anúncio
+            {isEdit ? "Editar anúncio" : "Criar anúncio"}
           </h1>
           <p className="text-muted-foreground">
-            Avance por partes e revise tudo antes de publicar.
+            {isEdit
+              ? "Atualize os dados e salve quando terminar."
+              : "Avance por partes e revise tudo antes de publicar."}
           </p>
         </div>
 
@@ -888,8 +1164,8 @@ export function SellPageContent() {
 
           <StepFooter
             error={error}
-            onBackHref={routes.market}
-            backLabel="Cancelar"
+            onBackHref={isEdit ? routes.dashboardListings : routes.dashboardListings}
+            backLabel={isEdit ? "Cancelar" : "Cancelar"}
             onNext={advanceFromProduct}
             nextLabel="Avançar"
           />
@@ -912,11 +1188,7 @@ export function SellPageContent() {
                   type="button"
                   variant="default"
                   size="sm"
-                  onClick={() =>
-                    setOffers((prev) =>
-                      prev.length >= 30 ? prev : [...prev, newOffer()],
-                    )
-                  }
+                  onClick={addDynamicOffer}
                 >
                   <PlusCircle className="size-4" />
                   Adicionar
@@ -931,14 +1203,16 @@ export function SellPageContent() {
                   icon={<PackageIcon className="size-5" />}
                   title="Anúncio simples"
                   description="Apenas um item, ideal para produtos sem variações."
-                  onClick={() => setAdKind("simple")}
+                  onClick={() => !isEdit && setAdKind("simple")}
+                  disabled={isEdit}
                 />
                 <KindCard
                   selected={adKind === "dynamic"}
                   icon={<LayersIcon className="size-5" />}
                   title="Anúncio Dinâmico"
-                  description="Múltiplos itens no mesmo anúncio, com títulos distintos."
-                  onClick={() => setAdKind("dynamic")}
+                  description="Várias opções no mesmo anúncio (pacotes, planos…)."
+                  onClick={() => !isEdit && setAdKind("dynamic")}
+                  disabled={isEdit}
                 />
               </div>
 
@@ -1004,17 +1278,126 @@ export function SellPageContent() {
                   ) : null}
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {offers.map((offer, index) => (
-                    <div
-                      key={offer.id}
-                      className="space-y-4 rounded-md border border-border/60 p-4"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <p className="pt-2 text-sm font-semibold">
-                          Oferta {index + 1}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed border-border/70 bg-muted/10 px-3 py-2">
+                    <p className="text-xs text-muted-foreground">
+                      Arraste pelo ícone{" "}
+                      <GripVerticalIcon className="mb-0.5 inline size-3.5" /> ou
+                      use as setas para definir a ordem das variantes.
+                    </p>
+                    {offerReorderSaving ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Loader2Icon className="size-3 animate-spin" />
+                        Salvando ordem…
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {offers.map((offer, index) => {
+                    const expanded = isOfferExpanded(offer.id);
+                    const summaryTitle =
+                      offer.title.trim() || `Oferta ${index + 1}`;
+                    const priceCents = parsePriceToCents(offer.price);
+                    const summaryPrice =
+                      priceCents != null ? formatBrl(priceCents) : null;
+
+                    return (
+                      <div
+                        key={offer.id}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = "move";
+                        }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          const fromIndex = offers.findIndex(
+                            (row) => row.id === dragOfferId,
+                          );
+                          if (fromIndex >= 0) {
+                            reorderDynamicOffers(fromIndex, index);
+                          }
+                          setDragOfferId(null);
+                        }}
+                        className={cn(
+                          "overflow-hidden rounded-md border border-border/60 transition-opacity",
+                          !offer.active && "opacity-70",
+                          dragOfferId === offer.id && "opacity-50",
+                        )}
+                      >
+                        <div className="flex items-center gap-1.5 bg-muted/15 px-2 py-2.5 sm:gap-2 sm:px-3">
+                          <button
+                            type="button"
+                            draggable
+                            onDragStart={(event) => {
+                              setDragOfferId(offer.id);
+                              event.dataTransfer.effectAllowed = "move";
+                            }}
+                            onDragEnd={() => setDragOfferId(null)}
+                            className="flex shrink-0 cursor-grab touch-none items-center rounded-sm p-1 text-muted-foreground hover:bg-muted/40 active:cursor-grabbing"
+                            aria-label={`Reposicionar ${summaryTitle}`}
+                          >
+                            <GripVerticalIcon className="size-4" />
+                          </button>
+                          <span className="w-5 shrink-0 text-center text-[11px] font-medium tabular-nums text-muted-foreground">
+                            {index + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleOfferExpanded(offer.id)}
+                            className="flex min-w-0 flex-1 items-center cursor-pointer gap-2 text-left"
+                            aria-expanded={expanded}
+                          >
+                            <ChevronDownIcon
+                              className={cn(
+                                "size-4 shrink-0 text-muted-foreground transition-transform",
+                                expanded && "rotate-180",
+                              )}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">
+                                {summaryTitle}
+                              </p>
+                              {!expanded ? (
+                                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                                  {[
+                                    summaryPrice,
+                                    offer.delivery === "auto"
+                                      ? "Entrega automática"
+                                      : "Entrega manual",
+                                    !offer.active ? "Inativa" : null,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </p>
+                              ) : null}
+                            </div>
+                          </button>
+                          <div className="flex shrink-0 items-center gap-0.5">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              disabled={index === 0}
+                              onClick={() =>
+                                reorderDynamicOffers(index, index - 1)
+                              }
+                              aria-label="Mover oferta para cima"
+                            >
+                              <ArrowUpIcon className="size-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              disabled={index === offers.length - 1}
+                              onClick={() =>
+                                reorderDynamicOffers(index, index + 1)
+                              }
+                              aria-label="Mover oferta para baixo"
+                            >
+                              <ArrowDownIcon className="size-3.5" />
+                            </Button>
+                          </div>
                           <OfferActiveToggle
                             active={offer.active}
                             onChange={(next) =>
@@ -1032,140 +1415,140 @@ export function SellPageContent() {
                             variant="ghost"
                             size="icon-sm"
                             disabled={offers.length <= 2}
-                            onClick={() =>
-                              setOffers((prev) =>
-                                prev.filter((o) => o.id !== offer.id),
-                              )
-                            }
+                            onClick={() => removeDynamicOffer(offer.id)}
                             aria-label="Remover oferta"
                           >
                             <Trash2Icon className="size-4 text-destructive" />
                           </Button>
                         </div>
-                      </div>
 
-                      <div
-                        className={cn(
-                          "grid gap-4",
-                          offer.delivery === "manual"
-                            ? "sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_7rem]"
-                            : "sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)]",
-                        )}
-                      >
-                        <div className="flex min-w-0 flex-col gap-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <FieldLabel>Título</FieldLabel>
-                            <span className="text-xs text-muted-foreground tabular-nums">
-                              {offer.title.length}/{MAX_TITLE}
-                            </span>
-                          </div>
-                          <Input
-                            value={offer.title}
-                            onChange={(e) =>
-                              setOffers((prev) =>
-                                prev.map((o) =>
-                                  o.id === offer.id
-                                    ? {
-                                      ...o,
-                                      title: e.target.value.slice(
-                                        0,
-                                        MAX_TITLE,
+                        {expanded ? (
+                          <div className="space-y-4 border-t border-border/40 p-4">
+                            <div
+                              className={cn(
+                                "grid gap-4",
+                                offer.delivery === "manual"
+                                  ? "sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)_7rem]"
+                                  : "sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)]",
+                              )}
+                            >
+                              <div className="flex min-w-0 flex-col gap-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <FieldLabel>Título</FieldLabel>
+                                  <span className="text-xs text-muted-foreground tabular-nums">
+                                    {offer.title.length}/{MAX_TITLE}
+                                  </span>
+                                </div>
+                                <Input
+                                  value={offer.title}
+                                  onChange={(e) =>
+                                    setOffers((prev) =>
+                                      prev.map((o) =>
+                                        o.id === offer.id
+                                          ? {
+                                            ...o,
+                                            title: e.target.value.slice(
+                                              0,
+                                              MAX_TITLE,
+                                            ),
+                                          }
+                                          : o,
                                       ),
+                                    )
+                                  }
+                                  placeholder="Ex: Plano básico"
+                                  className="h-11 rounded-md"
+                                />
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                <FieldLabel>Preço</FieldLabel>
+                                <PriceInput
+                                  value={offer.price}
+                                  onChange={(next) =>
+                                    setOffers((prev) =>
+                                      prev.map((o) =>
+                                        o.id === offer.id
+                                          ? { ...o, price: next }
+                                          : o,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </div>
+                              {offer.delivery === "manual" ? (
+                                <div className="flex flex-col gap-1.5">
+                                  <FieldLabel>Estoque</FieldLabel>
+                                  <Input
+                                    value={offer.stock}
+                                    onChange={(e) =>
+                                      setOffers((prev) =>
+                                        prev.map((o) =>
+                                          o.id === offer.id
+                                            ? {
+                                              ...o,
+                                              stock: e.target.value
+                                                .replace(/\D/g, "")
+                                                .slice(0, 6),
+                                            }
+                                            : o,
+                                        ),
+                                      )
                                     }
-                                    : o,
-                                ),
-                              )
-                            }
-                            placeholder="Ex: Plano básico"
-                            className="h-11 rounded-md"
-                          />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                          <FieldLabel>Preço</FieldLabel>
-                          <PriceInput
-                            value={offer.price}
-                            onChange={(next) =>
-                              setOffers((prev) =>
-                                prev.map((o) =>
-                                  o.id === offer.id
-                                    ? { ...o, price: next }
-                                    : o,
-                                ),
-                              )
-                            }
-                          />
-                        </div>
-                        {offer.delivery === "manual" ? (
-                          <div className="flex flex-col gap-1.5">
-                            <FieldLabel>Estoque</FieldLabel>
-                            <Input
-                              value={offer.stock}
-                              onChange={(e) =>
-                                setOffers((prev) =>
-                                  prev.map((o) =>
-                                    o.id === offer.id
-                                      ? {
-                                        ...o,
-                                        stock: e.target.value
-                                          .replace(/\D/g, "")
-                                          .slice(0, 6),
-                                      }
-                                      : o,
-                                  ),
-                                )
-                              }
-                              placeholder="1"
-                              inputMode="numeric"
-                              className="h-11 rounded-md tabular-nums"
-                            />
+                                    placeholder="1"
+                                    inputMode="numeric"
+                                    className="h-11 rounded-md tabular-nums"
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                              <FieldLabel>Entrega</FieldLabel>
+                              <DeliveryToggle
+                                value={offer.delivery}
+                                onChange={(mode) =>
+                                  setOffers((prev) =>
+                                    prev.map((o) =>
+                                      o.id === offer.id
+                                        ? { ...o, delivery: mode }
+                                        : o,
+                                    ),
+                                  )
+                                }
+                              />
+                            </div>
+
+                            {offer.delivery === "auto" ? (
+                              <div className="flex flex-col gap-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <FieldLabel>Estoque do item</FieldLabel>
+                                  <span className="text-xs text-muted-foreground tabular-nums">
+                                    {countAutoLines(offer.autoStock)} unidade
+                                    {countAutoLines(offer.autoStock) === 1
+                                      ? ""
+                                      : "s"}
+                                  </span>
+                                </div>
+                                <NumberedStockTextarea
+                                  value={offer.autoStock}
+                                  onChange={(next) =>
+                                    setOffers((prev) =>
+                                      prev.map((o) =>
+                                        o.id === offer.id
+                                          ? { ...o, autoStock: next }
+                                          : o,
+                                      ),
+                                    )
+                                  }
+                                  placeholder="Digite uma chave ou login por linha"
+                                />
+                              </div>
+                            ) : null}
                           </div>
                         ) : null}
                       </div>
-
-                      <div className="flex flex-col gap-1.5">
-                        <FieldLabel>Entrega</FieldLabel>
-                        <DeliveryToggle
-                          value={offer.delivery}
-                          onChange={(mode) =>
-                            setOffers((prev) =>
-                              prev.map((o) =>
-                                o.id === offer.id
-                                  ? { ...o, delivery: mode }
-                                  : o,
-                              ),
-                            )
-                          }
-                        />
-                      </div>
-
-                      {offer.delivery === "auto" ? (
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <FieldLabel>Estoque do item</FieldLabel>
-                            <span className="text-xs text-muted-foreground tabular-nums">
-                              {countAutoLines(offer.autoStock)} unidade
-                              {countAutoLines(offer.autoStock) === 1
-                                ? ""
-                                : "s"}
-                            </span>
-                          </div>
-                          <NumberedStockTextarea
-                            value={offer.autoStock}
-                            onChange={(next) =>
-                              setOffers((prev) =>
-                                prev.map((o) =>
-                                  o.id === offer.id
-                                    ? { ...o, autoStock: next }
-                                    : o,
-                                ),
-                              )
-                            }
-                            placeholder="Digite uma chave ou login por linha"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1282,7 +1665,9 @@ export function SellPageContent() {
           <Panel>
             <PanelTitle>Revisar</PanelTitle>
             <PanelDescription>
-              Confira os dados antes de publicar no Elloot.
+              {isEdit
+                ? "Confira os dados antes de salvar as alterações."
+                : "Confira os dados antes de publicar no Elloot."}
             </PanelDescription>
 
             <div className="space-y-4 pt-4">
@@ -1377,7 +1762,15 @@ export function SellPageContent() {
             error={error}
             onBack={() => goTo("images")}
             onNext={() => void submitListing()}
-            nextLabel={pending ? "Publicando…" : "Publicar anúncio"}
+            nextLabel={
+              pending
+                ? isEdit
+                  ? "Salvando…"
+                  : "Publicando…"
+                : isEdit
+                  ? "Salvar alterações"
+                  : "Publicar anúncio"
+            }
             nextDisabled={pending}
             nextPending={pending}
           />
@@ -1411,16 +1804,34 @@ function PanelDescription({ children }: { children: React.ReactNode }) {
   );
 };
 
-function KindCard({ selected, icon, title, description, onClick, }: { selected: boolean; icon: React.ReactNode; title: string; description: string; onClick: () => void; }) {
+function KindCard({
+  selected,
+  icon,
+  title,
+  description,
+  onClick,
+  disabled = false,
+}: {
+  selected: boolean;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        "flex flex-1 cursor-pointer flex-row items-center gap-3 rounded-md border p-4 text-left transition-colors",
+        "flex flex-1 flex-row items-center gap-3 rounded-md border p-4 text-left transition-colors",
+        disabled
+          ? "cursor-default opacity-80"
+          : "cursor-pointer hover:bg-muted/30",
         selected
           ? "bg-primary/10"
-          : "border-border/60 bg-muted/15 hover:bg-muted/30",
+          : "border-border/60 bg-muted/15",
       )}
     >
       <span className={selected ? "text-primary" : "text-muted-foreground"}>

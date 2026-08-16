@@ -14,3 +14,14 @@ export {
   unlockNotifySound,
   bindNotifySoundUnlock,
 } from "./notify-sound";
+export {
+  fetchNotificationPreferences,
+  updateNotificationPreferences,
+  CATEGORY_LABELS,
+} from "./preferences-api";
+export type { CategoryPreference, NotificationCategory } from "./preferences-api";
+export {
+  enableBrowserPush,
+  disableBrowserPush,
+  isPushSupported,
+} from "./push-client";

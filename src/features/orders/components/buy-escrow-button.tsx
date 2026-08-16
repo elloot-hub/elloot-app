@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createOrder } from "@/features/orders/api";
 import { useAuth } from "@/features/auth/context";
+import { trackListingEvent } from "@/features/listings/track-listing-event";
 import { ApiError } from "@/lib/api/errors";
 import { Button } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
@@ -13,6 +14,7 @@ type Props = {
   listingId: string;
   sellerId: string;
   offerId?: string;
+  priceCents?: number;
   priceLabel?: string;
   disabled?: boolean;
   className?: string;
@@ -25,6 +27,7 @@ export function BuyEscrowButton({
   listingId,
   sellerId,
   offerId,
+  priceCents,
   priceLabel,
   disabled,
   className,
@@ -55,6 +58,7 @@ export function BuyEscrowButton({
 
     setPending(true);
     try {
+      void trackListingEvent(listingId, "PURCHASE_INTENT", priceCents);
       const { order } = await createOrder(listingId, offerId);
       router.push(routes.order(order.id));
     } catch (err) {

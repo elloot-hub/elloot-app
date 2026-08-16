@@ -3,12 +3,18 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { ChevronDownIcon, LayoutDashboardIcon, LogOutIcon, MessageSquareIcon, MoonIcon, PackageIcon, UserIcon, WalletIcon, } from "lucide-react";
+
+import { ChevronDownIcon, LogOutIcon, UserIcon, } from "lucide-react";
+import { FaBasketShopping, FaArrowTrendUp, FaMoon, FaHeart } from "react-icons/fa6";
+import { BiSolidUser } from "react-icons/bi";
+import { IoLogOut } from "react-icons/io5";
+
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+
+import type { User } from "@/types/api";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
-import type { User } from "@/types/api";
 
 type Props = {
   user: User;
@@ -92,42 +98,47 @@ export function UserMenu({ user, onLogout }: Props) {
           <div className="p-1.5">
             <MenuLink
               href={routes.dashboard}
-              icon={UserIcon}
+              icon={BiSolidUser}
               onClick={() => setOpen(false)}
             >
-              Minha conta
+              Minha Conta
             </MenuLink>
             <MenuLink
               href={routes.orders}
-              icon={PackageIcon}
+              icon={FaBasketShopping}
               onClick={() => setOpen(false)}
             >
-              Minhas compras
+              Minhas Compras
             </MenuLink>
             <MenuLink
-              href={routes.messages}
-              icon={MessageSquareIcon}
+              href="/dashboard/favorites"
+              icon={FaHeart}
               onClick={() => setOpen(false)}
             >
-              Mensagens
+              Meus Favoritos
             </MenuLink>
             <MenuLink
               href={routes.wallet}
-              icon={WalletIcon}
+              icon={FaArrowTrendUp}
               onClick={() => setOpen(false)}
             >
-              Carteira
+              Minhas Vendas
             </MenuLink>
 
             <div
               role="menuitem"
               aria-label="Alternar tema escuro"
               className="flex items-center justify-between gap-2 rounded-sm cursor-pointer select-none px-2.5 py-2 text-sm"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (mounted) {
+                  setTheme(isDark ? "light" : "dark");
+                }
+              }}
               onKeyDown={(e) => e.stopPropagation()}
             >
               <span className="inline-flex items-center gap-2">
-                <MoonIcon className="size-4 text-muted-foreground" />
+                <FaMoon className="size-4 text-muted-foreground" />
                 Tema escuro
               </span>
               <Switch
@@ -137,10 +148,12 @@ export function UserMenu({ user, onLogout }: Props) {
                 onCheckedChange={(checked) => {
                   setTheme(checked ? "dark" : "light");
                 }}
+                onClick={(e) => e.stopPropagation()}
                 aria-label="Alternar tema escuro"
               />
             </div>
           </div>
+
           <div className="border-t border-border/70 p-1.5">
             <button
               type="button"
@@ -152,7 +165,7 @@ export function UserMenu({ user, onLogout }: Props) {
               className="flex w-full items-center cursor-pointer gap-2 rounded-sm px-2.5 py-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
             >
               <LogOutIcon className="size-4" />
-              Sair
+              Sair da Conta
             </button>
           </div>
         </div>

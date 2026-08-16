@@ -12,7 +12,7 @@ export default function DashboardSalesPage() {
     <RequireAuth>
       <DashboardShell
         title="Minhas vendas"
-        description="Pedidos em que você é o vendedor — entregue e acompanhe o escrow."
+        description="Pedidos em que você é o vendedor — filtre, entregue e acompanhe o escrow."
         breadcrumb={["Conta", "Vendas", "Minhas vendas"]}
       >
         <SalesDeliveryClient />

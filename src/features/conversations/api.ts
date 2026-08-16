@@ -13,9 +13,13 @@ export type ConversationSummary = {
     amountCents: number;
     buyerId: string;
     sellerId: string;
-    listing: { id: string; title: string };
-    buyer: { id: string; name: string | null };
-    seller: { id: string; name: string | null };
+    listing: {
+      id: string;
+      title: string;
+      media?: Array<{ url: string }>;
+    };
+    buyer: { id: string; name: string | null; avatarUrl?: string | null };
+    seller: { id: string; name: string | null; avatarUrl?: string | null };
   };
   messages?: Array<{
     id: string;
@@ -33,7 +37,7 @@ export type ConversationMessage = {
   clientId?: string | null;
   readAt?: string | null;
   createdAt: string;
-  sender?: { id: string; name: string | null };
+  sender?: { id: string; name: string | null; avatarUrl?: string | null };
 };
 
 export async function fetchConversations() {

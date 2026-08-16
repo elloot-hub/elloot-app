@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronRightIcon, PackageIcon } from "lucide-react";
 import { FaTruckFast } from "react-icons/fa6";
@@ -12,6 +12,7 @@ import { ListingImageSlider } from "@/features/listings/components/listing-image
 import { ListingQuestionsSection } from "@/features/listings/components/listing-questions-section";
 import { ListingReviewsSection } from "@/features/listings/components/listing-reviews-section";
 import { ListingSellerCard } from "@/features/listings/components/listing-seller-card";
+import { trackListingEvent } from "@/features/listings/track-listing-event";
 import { routes } from "@/lib/routes";
 import type { ListingDetail as ListingDetailType, ListingProductType, } from "@/types/api";
 
@@ -45,6 +46,11 @@ export function ListingDetailView({ listing }: Props) {
       ),
     [listing.media],
   );
+
+  useEffect(() => {
+    if (listing.status !== "ACTIVE") return;
+    void trackListingEvent(listing.id, "VIEW");
+  }, [listing.id, listing.status]);
 
   const vertical = listingVertical(listing.category);
   const visual = getCategoryVisual(vertical.slug);

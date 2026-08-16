@@ -36,6 +36,13 @@ export async function fetchMe(_token?: string | null) {
   return api.get<{ user: User }>("/api/auth/me");
 }
 
+export async function updateMe(input: {
+  name?: string | null;
+  pixKey?: string | null;
+}) {
+  return api.patch<{ user: User }>("/api/auth/me", input);
+}
+
 export function googleAuthUrl() {
   return `${config.apiUrl}/api/auth/google`;
 }

@@ -57,20 +57,20 @@ const SECTIONS: NavSection[] = [
     items: [
       {
         href: routes.dashboard,
-        label: "Resumo",
+        label: "Resumo Geral",
         icon: LayoutDashboardIcon,
         exact: true,
       },
       {
         href: routes.dashboardNotifications,
-        label: "Central de notificações",
+        label: "Notificações",
         icon: BellIcon,
       },
     ],
   },
   {
     id: "buyer",
-    label: "Compras",
+    label: "Minhas Compras",
     icon: ShoppingBagIcon,
     defaultOpen: true,
     items: [
@@ -103,10 +103,11 @@ const SECTIONS: NavSection[] = [
   },
   {
     id: "seller",
-    label: "Vendas",
+    label: "Minhas Vendas",
     icon: TrendingUpIcon,
     defaultOpen: true,
     items: [
+      { href: routes.sell, label: "Criar anúncio", icon: StoreIcon },
       {
         href: routes.dashboardListings,
         label: "Meus anúncios",
@@ -118,6 +119,11 @@ const SECTIONS: NavSection[] = [
         icon: PackageIcon,
       },
       {
+        href: routes.dashboardMetricsTab("overview"),
+        label: "Métricas de Vendas",
+        icon: TrendingUpIcon,
+      },
+      {
         href: routes.dashboardQuestionsReceived,
         label: "Perguntas recebidas",
         icon: MessageCircleIcon,
@@ -127,12 +133,6 @@ const SECTIONS: NavSection[] = [
         label: "Avaliações recebidas",
         icon: StarIcon,
       },
-      {
-        href: routes.dashboardMetrics,
-        label: "Métricas",
-        icon: TrendingUpIcon,
-      },
-      { href: routes.sell, label: "Criar anúncio", icon: StoreIcon },
     ],
   },
   {
@@ -150,13 +150,12 @@ const SECTIONS: NavSection[] = [
         href: routes.dashboardWithdrawals,
         label: "Minhas retiradas",
         icon: BanknoteIcon,
-        soon: true,
       },
     ],
   },
   {
     id: "account",
-    label: "Conta",
+    label: "Minha Conta",
     icon: SettingsIcon,
     defaultOpen: true,
     items: [
@@ -176,24 +175,25 @@ const SECTIONS: NavSection[] = [
 
 const ALL_NAV_ITEMS: NavItem[] = SECTIONS.flatMap((s) => s.items);
 
-function pathMatchesItem(pathname: string, item: NavItem) {
-  if (item.exact) return pathname === item.href;
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+function hrefPath(href: string) {
+  return href.split("?")[0] ?? href;
 }
 
-/**
- * Only the most specific (longest href) match is active — avoids
- * `/dashboard/questions` lighting up on `/dashboard/questions/received`.
- */
+function pathMatchesItem(pathname: string, item: NavItem) {
+  const path = hrefPath(item.href);
+  if (item.exact) return pathname === path;
+  return pathname === path || pathname.startsWith(`${path}/`);
+}
+
 function isActive(pathname: string, item: NavItem) {
   if (!pathMatchesItem(pathname, item)) return false;
   const matches = ALL_NAV_ITEMS.filter((candidate) =>
     pathMatchesItem(pathname, candidate),
   );
   const best = matches.reduce((a, b) =>
-    a.href.length >= b.href.length ? a : b,
+    hrefPath(a.href).length >= hrefPath(b.href).length ? a : b,
   );
-  return best.href === item.href;
+  return hrefPath(best.href) === hrefPath(item.href);
 }
 
 function sellerInitial(name: string | null | undefined, email?: string) {

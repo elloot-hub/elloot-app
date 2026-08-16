@@ -15,8 +15,12 @@ export const routes = {
   dashboardPurchases: "/dashboard/purchases",
   dashboardFavorites: "/dashboard/favorites",
   dashboardListings: "/dashboard/listings",
+  dashboardListingEdit: (id: string) => `/dashboard/listings/${id}/edit` as const,
   dashboardSales: "/dashboard/sales",
   dashboardMetrics: "/dashboard/metrics",
+  dashboardMetricsTab: (
+    tab: "overview" | "listings" | "costs" | "service" = "overview",
+  ) => `/dashboard/metrics?tab=${tab}` as const,
   dashboardMessages: "/dashboard/messages",
   dashboardWallet: "/dashboard/wallet",
   dashboardWithdrawals: "/dashboard/withdrawals",

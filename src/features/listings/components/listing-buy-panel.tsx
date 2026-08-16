@@ -8,6 +8,7 @@ import { BuyEscrowButton } from "@/features/orders/components/buy-escrow-button"
 import { OfferSelectMenu } from "@/features/listings/components/offer-select-menu";
 import { useCart } from "@/features/cart";
 import { useAuth } from "@/features/auth/context";
+import { trackListingEvent } from "@/features/listings/track-listing-event";
 import { formatBRLFromCents } from "@/lib/format";
 import type { ListingDetail as ListingDetailType, ListingOffer, } from "@/types/api";
 
@@ -65,6 +66,7 @@ export function ListingBuyPanel({ listing }: Props) {
         ? selectedOffer?.stockQuantity
         : listing.stockQuantity,
     });
+    void trackListingEvent(listing.id, "PURCHASE_INTENT", displayPrice);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
@@ -103,6 +105,7 @@ export function ListingBuyPanel({ listing }: Props) {
               listingId={listing.id}
               sellerId={listing.seller.id}
               offerId={isDynamic ? selectedOffer?.id : undefined}
+              priceCents={displayPrice}
               priceLabel={formatBRLFromCents(displayPrice)}
               showHint={false}
               className="min-w-0 flex-[1.4]"

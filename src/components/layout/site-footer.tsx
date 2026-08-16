@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FaDiscord, FaInstagram, FaYoutube, FaXTwitter, } from "react-icons/fa6";
 import { MessageCircleIcon } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { buttonVariants } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
@@ -42,6 +43,9 @@ const LEGAL_LINKS = [
 ] as const;
 
 export function SiteFooter() {
+  const pathname = usePathname();
+  if (pathname.startsWith("/dashboard/messages/")) return null;
+
   return (
     <footer className="mt-auto border-t border-border/50 bg-card/40">
       <Container className="py-12 sm:py-14">

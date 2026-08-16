@@ -88,8 +88,10 @@ export function NotificationsButton({ className }: Props) {
         {unreadCount > 0 ? (
           <span
             aria-hidden
-            className="absolute top-1 right-1 size-2 rounded-full bg-primary ring-2 ring-background"
-          />
+            className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground ring-2 ring-background tabular-nums"
+          >
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
         ) : null}
       </PopoverTrigger>
 
@@ -197,8 +199,26 @@ export function NotificationsButton({ className }: Props) {
 function NotificationBody({
   item,
 }: {
-  item: { title: string; body: string; createdAt: string; read: boolean };
+  item: {
+    title: string;
+    body: string;
+    createdAt: string;
+    read: boolean;
+    meta?: unknown;
+  };
 }) {
+  const meta =
+    item.meta && typeof item.meta === "object"
+      ? (() => {
+          const m = item.meta as Record<string, unknown>;
+          if (typeof m.orderId === "string") return "Pedido";
+          if (typeof m.listingId === "string") return "Anúncio";
+          if (typeof m.payoutId === "string") return "Saque";
+          if (typeof m.disputeId === "string") return "Disputa";
+          return null;
+        })()
+      : null;
+
   return (
     <>
       <div className="flex items-start justify-between gap-2">
@@ -208,8 +228,14 @@ function NotificationBody({
         ) : null}
       </div>
       <p className="text-xs text-muted-foreground text-pretty">{item.body}</p>
-      <p className="pt-0.5 font-mono text-[10px] text-muted-foreground">
-        {formatWhen(item.createdAt)}
+      <p className="flex items-center gap-1.5 pt-0.5 font-mono text-[10px] text-muted-foreground">
+        <span>{formatWhen(item.createdAt)}</span>
+        {meta ? (
+          <>
+            <span aria-hidden>·</span>
+            <span>{meta}</span>
+          </>
+        ) : null}
       </p>
     </>
   );

@@ -75,7 +75,7 @@ export function OrderDisputePanel({
 
   if (!openForm) {
     return (
-      <div className="space-y-3 rounded-2xl border border-border/70 bg-card/80 p-5">
+      <div className="space-y-3 rounded-md border border-border/70 bg-card/80 p-5">
         <div className="flex items-start gap-2 text-sm">
           <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-amber-500" />
           <p className="text-muted-foreground text-pretty">
