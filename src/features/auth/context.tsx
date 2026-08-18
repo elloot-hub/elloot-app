@@ -7,6 +7,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -48,6 +49,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const sessionGenRef = useRef(0);
 
   const applyUser = useCallback((next: User | null) => {
     setUser(next);
@@ -67,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const setSession = useCallback(
     async (_accessToken?: string | null, nextUser?: User | null) => {
+      sessionGenRef.current += 1;
       clearAccessToken();
       if (nextUser) {
         applyUser(nextUser);
@@ -87,12 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     const cached = readSessionSnapshot();
     if (!cached) return;
+    writeSessionSnapshot(cached);
     setUser(snapshotToUser(cached));
     setLoading(false);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
+    const gen = sessionGenRef.current;
     (async () => {
       try {
         clearAccessToken();
@@ -124,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         clearAccessToken();
-        if (!cancelled) {
+        if (!cancelled && sessionGenRef.current === gen) {
           applyUser(null);
         }
       } finally {

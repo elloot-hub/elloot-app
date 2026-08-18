@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /** Must match API `ACCESS_COOKIE_NAME` (elloot-api/src/lib/auth-cookie.ts). */
 const ACCESS_COOKIE = "elloot_at";
+/** Must match `SESSION_HINT_COOKIE` — API JWT is on another host (Vercel ↔ Square Cloud). */
+const SESSION_HINT_COOKIE = "elloot_session";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/sell", "/orders"] as const;
 
@@ -34,7 +36,8 @@ function safeInternalNext(value: string | null): string {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(ACCESS_COOKIE)?.value;
-  const hasSession = Boolean(token && token.length > 10);
+  const hint = request.cookies.get(SESSION_HINT_COOKIE)?.value;
+  const hasSession = Boolean((token && token.length > 10) || hint === "1");
 
   if (isProtectedPath(pathname) && !hasSession) {
     const login = new URL("/login", request.url);

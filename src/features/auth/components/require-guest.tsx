@@ -11,6 +11,15 @@ type Props = {
   redirectTo?: string;
 };
 
+function safeNext(value: string | null, fallback: string): string {
+  if (!value) return fallback;
+  if (/[\\]/.test(value) || /%5c/i.test(value)) return fallback;
+  if (!value.startsWith("/")) return fallback;
+  if (value.startsWith("//") || value.includes("://")) return fallback;
+  if (value.startsWith("/login") || value.startsWith("/register")) return fallback;
+  return value;
+}
+
 /**
  * Bloqueia páginas de convidado (login/register) se o usuário já estiver logado.
  */
@@ -22,9 +31,9 @@ export function RequireGuest({
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    if (!loading && user) {
-      router.replace(redirectTo);
-    }
+    if (loading || !user) return;
+    const next = new URLSearchParams(window.location.search).get("next");
+    router.replace(safeNext(next, redirectTo));
   }, [loading, user, router, redirectTo]);
 
   if (loading) {
