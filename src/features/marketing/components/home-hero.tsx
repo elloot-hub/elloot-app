@@ -46,7 +46,7 @@ export function HomeHero({ categories }: { categories: Category[] }) {
   const spot = isDark ? SPOTLIGHT_DARK : SPOTLIGHT_LIGHT;
 
   return (
-    <section className="relative -mt-[4.25rem] overflow-hidden pt-[4.25rem] sm:-mt-[4.5rem] sm:pt-[4.5rem]">
+    <section className="relative -mt-[var(--site-header-height)] overflow-hidden pt-[var(--site-header-height)]">
       <div className="pointer-events-none absolute inset-0 -z-10">
         <Spotlight {...spot} />
       </div>

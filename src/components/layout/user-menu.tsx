@@ -60,13 +60,14 @@ export function UserMenu({ user, onLogout }: Props) {
     <div ref={rootRef} className="relative">
       <Button
         type="button"
+        aria-label={`Conta de ${label}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={menuId}
         onClick={() => setOpen((value) => !value)}
         className={cn(
           buttonVariants({ variant: "secondary" }),
-          "max-w-[11rem] border-border bg-background px-2 h-10 hover:border-border/70 hover:bg-background/50",
+          "border-border bg-background hover:border-border/70 hover:bg-background/50 size-9 px-0 md:h-10 md:w-auto md:max-w-[11rem] md:px-2",
         )}
       >
         {user.avatarUrl ? (
@@ -80,10 +81,10 @@ export function UserMenu({ user, onLogout }: Props) {
             <UserIcon className="size-3.5" />
           </span>
         )}
-        <span className="truncate text-[13px]">{label}</span>
+        <span className="hidden truncate text-[13px] md:inline">{label}</span>
         <ChevronDownIcon
           className={cn(
-            "size-3.5 shrink-0 text-muted-foreground transition-transform",
+            "hidden size-3.5 shrink-0 text-muted-foreground transition-transform md:block",
             open && "rotate-180",
           )}
         />

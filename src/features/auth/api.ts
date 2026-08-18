@@ -36,6 +36,12 @@ export async function fetchMe(_token?: string | null) {
   return api.get<{ user: User }>("/api/auth/me");
 }
 
+export async function fetchSession() {
+  return api.get<{
+    user: Pick<User, "id" | "email" | "name" | "avatarUrl" | "role" | "kycStatus">;
+  }>("/api/auth/session");
+}
+
 export async function updateMe(input: {
   name?: string | null;
   pixKey?: string | null;

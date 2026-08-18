@@ -40,6 +40,13 @@
   --sidebar-border: hsl(220 16% 88%);
   --sidebar-ring: hsl(217 91% 54%);
   --surface-glow: hsl(217 91% 54% / 0.08);
+  --site-header-height: 7rem;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --site-header-height: 4.5rem;
+  }
 }
 
 .dark {

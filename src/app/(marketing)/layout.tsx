@@ -9,7 +9,7 @@ export default function MarketingLayout({
   return (
     <>
       <SiteHeader />
-      <main className="flex flex-1 flex-col pt-[4.25rem] sm:pt-[4.5rem]">
+      <main className="flex flex-1 flex-col pt-[var(--site-header-height)]">
         {children}
       </main>
       <SiteFooter />

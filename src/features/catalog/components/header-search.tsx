@@ -109,7 +109,7 @@ export function HeaderSearch({ className }: Props) {
             onClick={() => setCategoriesOpen(true)}
             variant="outline"
             size="sm"
-            className="inline-flex shrink-0 mr-1 items-center rounded-full px-3 py-1 text-foreground/90 transition-colors hover:bg-muted hover:text-foreground"
+            className="mr-1 hidden shrink-0 items-center rounded-full px-3 py-1 text-foreground/90 transition-colors hover:bg-muted hover:text-foreground md:inline-flex"
           >
             Categorias
             <ChevronDownIcon className="size-3.5 opacity-70" />

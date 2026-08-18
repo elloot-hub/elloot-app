@@ -27,6 +27,7 @@ import {
 import { FaDiscord } from "react-icons/fa6";
 import { useAuth } from "@/features/auth/context";
 import { buttonVariants } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -219,7 +220,7 @@ function NavBody({
   className?: string;
 }) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [open, setOpen] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(SECTIONS.map((s) => [s.id, s.defaultOpen ?? true])),
   );
@@ -250,25 +251,37 @@ function NavBody({
     <div className={cn("flex h-full min-h-0 flex-col", className)}>
       <div className="space-y-3 border-b border-border/50 pb-4">
         <div className="flex items-center gap-3 px-1">
-          {user?.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt=""
-              className="size-11 rounded-full object-cover ring-1 ring-border/60"
-            />
+          {loading && !user ? (
+            <>
+              <Skeleton className="size-11 shrink-0 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-3 w-36" />
+              </div>
+            </>
           ) : (
-            <span className="flex size-11 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
-              {sellerInitial(user?.name, user?.email)}
-            </span>
+            <>
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt=""
+                  className="size-11 rounded-full object-cover ring-1 ring-border/60"
+                />
+              ) : (
+                <span className="flex size-11 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
+                  {sellerInitial(user?.name, user?.email)}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold tracking-tight">
+                  {greeting}, {displayName}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Bem-vindo ao painel
+                </p>
+              </div>
+            </>
           )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold tracking-tight">
-              {greeting}, {displayName}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Bem-vindo ao painel
-            </p>
-          </div>
         </div>
         <Link
           href={routes.dashboardSettings}

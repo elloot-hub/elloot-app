@@ -5,17 +5,25 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import {
   fetchMe,
+  fetchSession,
   login as loginRequest,
   logoutRequest,
   register as registerRequest,
 } from "@/features/auth/api";
 import { clearAccessToken } from "@/features/auth/storage";
+import {
+  clearSessionSnapshot,
+  readSessionSnapshot,
+  snapshotToUser,
+  writeSessionSnapshot,
+} from "@/features/auth/session-snapshot";
 import type { User } from "@/types/api";
 
 type AuthContextValue = {
@@ -41,40 +49,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const applyUser = useCallback((next: User | null) => {
+    setUser(next);
+    if (next) writeSessionSnapshot(next);
+    else clearSessionSnapshot();
+  }, []);
+
   const refreshUser = useCallback(async () => {
     try {
       const { user: me } = await fetchMe();
-      setUser(me);
+      applyUser(me);
     } catch {
       clearAccessToken();
-      setUser(null);
+      applyUser(null);
     }
-  }, []);
+  }, [applyUser]);
 
   const setSession = useCallback(
     async (_accessToken?: string | null, nextUser?: User | null) => {
-      // Cookie already set by API (login/register/oauth exchange).
       clearAccessToken();
       if (nextUser) {
-        setUser(nextUser);
+        applyUser(nextUser);
         return;
       }
+      try {
+        const { user: session } = await fetchSession();
+        applyUser(snapshotToUser(session));
+      } catch {
+        /* fall through to /me */
+      }
       const { user: me } = await fetchMe();
-      setUser(me);
+      applyUser(me);
     },
-    [],
+    [applyUser],
   );
+
+  useLayoutEffect(() => {
+    const cached = readSessionSnapshot();
+    if (!cached) return;
+    setUser(snapshotToUser(cached));
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         clearAccessToken();
-        const { user: me } = await fetchMe();
-        if (!cancelled) setUser(me);
+        const { user: session } = await fetchSession();
+        if (cancelled) return;
+        setUser((prev) => {
+          const next = snapshotToUser(session);
+          if (!prev) return next;
+          return {
+            ...prev,
+            ...next,
+            pixKey: prev.pixKey,
+            accounts: prev.accounts,
+            createdAt:
+              prev.createdAt && prev.createdAt !== new Date(0).toISOString()
+                ? prev.createdAt
+                : next.createdAt,
+          };
+        });
+        writeSessionSnapshot(session);
+        setLoading(false);
+
+        try {
+          const { user: me } = await fetchMe();
+          if (cancelled) return;
+          applyUser(me);
+        } catch {
+          // Navbar already has JWT claims; /me can retry later.
+        }
       } catch {
         clearAccessToken();
-        if (!cancelled) setUser(null);
+        if (!cancelled) {
+          applyUser(null);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -82,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applyUser]);
 
   const login = useCallback(
     async (input: { email: string; password: string }) => {
@@ -103,13 +155,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     void logoutRequest().catch(() => undefined);
     clearAccessToken();
-    setUser(null);
-  }, []);
+    applyUser(null);
+  }, [applyUser]);
 
   const value = useMemo(
     () => ({
       user,
-      // Sentinel so existing `if (token)` checks keep working without exposing JWT.
       token: user ? "cookie" : null,
       loading,
       login,

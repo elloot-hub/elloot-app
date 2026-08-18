@@ -29,7 +29,7 @@ export function DashboardShell({
       <div
         className={
           isChat
-            ? "grid gap-4 lg:grid-cols-[17.5rem_minmax(0,1fr)] lg:h-[calc(100dvh-6.25rem)] lg:items-stretch lg:gap-6"
+            ? "grid gap-4 lg:grid-cols-[17.5rem_minmax(0,1fr)] lg:h-[calc(100dvh-var(--site-header-height)-1.75rem)] lg:items-stretch lg:gap-6"
             : "grid gap-6 lg:grid-cols-[17.5rem_minmax(0,1fr)] lg:items-start lg:gap-8"
         }
       >
@@ -43,7 +43,7 @@ export function DashboardShell({
           <div
             className={
               isChat
-                ? "flex h-full max-h-[calc(100dvh-6.25rem)] flex-col rounded-md border border-border/60 bg-card/30 p-3"
+                ? "flex h-full max-h-[calc(100dvh-var(--site-header-height)-1.75rem)] flex-col rounded-md border border-border/60 bg-card/30 p-3"
                 : "flex max-h-[calc(100vh-7rem)] flex-col rounded-md border border-border/60 bg-card/30 p-3"
             }
           >
@@ -54,7 +54,7 @@ export function DashboardShell({
         <div
           className={
             isChat
-              ? "flex min-h-0 min-w-0 flex-col gap-2 h-[calc(100dvh-6.5rem)] lg:h-auto"
+              ? "flex min-h-0 min-w-0 flex-col gap-2 h-[calc(100dvh-var(--site-header-height)-1.5rem)] lg:h-auto"
               : "min-w-0 space-y-3"
           }
         >
