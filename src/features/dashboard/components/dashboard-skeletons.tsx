@@ -24,49 +24,51 @@ function CardShell({
 /** Resumo / overview do painel */
 export function OverviewSkeleton() {
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Carregando resumo">
-      <div className="grid gap-3 sm:grid-cols-3">
+    <div className="space-y-5" aria-busy="true" aria-label="Carregando resumo">
+      <div className="grid gap-2 sm:grid-cols-3">
+        <Skeleton className="h-32 rounded-md sm:col-span-1" />
+        <Skeleton className="h-32 rounded-md" />
+        <Skeleton className="h-32 rounded-md" />
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <CardShell key={`bal-${i}`} className="space-y-3">
-            <Skeleton className="h-3 w-28" />
-            <Skeleton className="h-8 w-36" />
-            <Skeleton className="h-3 w-40" />
-          </CardShell>
-        ))}
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <CardShell key={`stat-${i}`} className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="size-4 rounded-sm" />
-            </div>
-            <Skeleton className="h-7 w-12" />
-            <Skeleton className="h-3 w-28" />
-          </CardShell>
-        ))}
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <CardShell key={`info-${i}`} className="flex gap-3">
-            <Skeleton className="size-10 shrink-0" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-3 w-full max-w-md" />
-              <Skeleton className="h-3 w-3/4 max-w-xs" />
-            </div>
-          </CardShell>
-        ))}
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <CardShell key={`cta-${i}`} className="space-y-3 p-5">
-            <Skeleton className="h-5 w-44" />
+          <CardShell key={`insight-${i}`} className="space-y-2">
+            <Skeleton className="size-8 rounded-md" />
+            <Skeleton className="h-4 w-36" />
             <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-9 w-32" />
+          </CardShell>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-5 w-44" />
+          <Skeleton className="h-4 w-16" />
+        </div>
+        <div className="overflow-hidden rounded-md border border-border/60">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div
+              key={`action-${i}`}
+              className="flex items-center gap-3 border-t border-border/40 px-4 py-3 first:border-t-0"
+            >
+              <Skeleton className="h-10 w-1 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-3/4 max-w-md" />
+                <Skeleton className="h-3 w-40" />
+              </div>
+              <Skeleton className="h-8 w-24 shrink-0" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <CardShell key={`metric-${i}`} className="space-y-2">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-16" />
+            <Skeleton className="h-3 w-28" />
           </CardShell>
         ))}
       </div>
@@ -74,28 +76,33 @@ export function OverviewSkeleton() {
   );
 }
 
-/** Lista de compras / vendas (cards horizontais) */
+/** Lista de compras / vendas (tickets de pedido) */
 export function OrderListSkeleton({ rows = 4 }: { rows?: number }) {
   return (
     <ul
-      className="space-y-3"
+      className="space-y-2"
       aria-busy="true"
       aria-label="Carregando pedidos"
     >
       {Array.from({ length: rows }).map((_, i) => (
-        <li key={i}>
-          <CardShell className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1 space-y-2.5">
+        <li
+          key={i}
+          className="rounded-md border border-border/60 bg-card/40 px-3.5 py-3.5 sm:px-4"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-3 w-28" />
                 <Skeleton className="h-5 w-24 rounded-md" />
               </div>
               <Skeleton className="h-4 w-72 max-w-full" />
               <Skeleton className="h-3 w-56 max-w-full" />
-              <Skeleton className="h-3 w-40" />
             </div>
-            <Skeleton className="h-9 w-28 shrink-0" />
-          </CardShell>
+            <div className="flex gap-2">
+              <Skeleton className="h-8 w-24" />
+              <Skeleton className="h-8 w-20" />
+            </div>
+          </div>
         </li>
       ))}
     </ul>
@@ -138,7 +145,7 @@ export function ListingsSkeleton({ rows = 6 }: { rows?: number }) {
 export function FavoritesSkeleton({ cards = 6 }: { cards?: number }) {
   return (
     <div
-      className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+      className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
       aria-busy="true"
       aria-label="Carregando favoritos"
     >
@@ -264,23 +271,51 @@ export function DashboardListSkeleton({ rows = 5 }: { rows?: number }) {
 /** Carteira / extrato */
 export function WalletSkeleton() {
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Carregando carteira">
-      <CardShell className="space-y-3 p-5">
-        <Skeleton className="h-3 w-32" />
-        <Skeleton className="h-9 w-40" />
-        <Skeleton className="h-3 w-56" />
-      </CardShell>
+    <div className="space-y-5" aria-busy="true" aria-label="Carregando carteira">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <CardShell className="flex items-center justify-between gap-3 p-4">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-8 w-36" />
+            <Skeleton className="h-3 w-44" />
+          </div>
+          <Skeleton className="h-8 w-28 shrink-0" />
+        </CardShell>
+        <CardShell className="space-y-2 p-4">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-3 w-36" />
+        </CardShell>
+        <CardShell className="space-y-2 p-4">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-3 w-36" />
+        </CardShell>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <CardShell key={i} className="space-y-2 p-4">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-7 w-24" />
+          </CardShell>
+        ))}
+      </div>
       <div className="space-y-3">
         <Skeleton className="h-5 w-24" />
+        <div className="flex gap-2">
+          <Skeleton className="h-9 flex-1" />
+          <Skeleton className="h-9 w-48" />
+        </div>
         <ul className="divide-y divide-border/50 overflow-hidden rounded-md border border-border/60">
           {Array.from({ length: 5 }).map((_, i) => (
             <li
               key={i}
-              className="flex items-center justify-between gap-3 px-3 py-3 sm:px-4"
+              className="flex items-center gap-3 px-3 py-3 sm:px-4"
             >
-              <div className="space-y-2">
+              <Skeleton className="size-9 shrink-0 rounded-md" />
+              <div className="min-w-0 flex-1 space-y-2">
                 <Skeleton className="h-4 w-36" />
-                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3 w-48" />
               </div>
               <Skeleton className="h-4 w-20" />
             </li>
@@ -317,7 +352,7 @@ export function ConversationsListSkeleton({ rows = 5 }: { rows?: number }) {
 export function ConversationThreadSkeleton() {
   return (
     <div
-      className="flex h-full min-h-[min(70vh,640px)] flex-col overflow-hidden rounded-md border border-border/60 bg-card/30"
+      className="flex h-full min-h-[min(70vh,640px)] w-full flex-1 flex-col overflow-hidden bg-card/30"
       aria-busy="true"
       aria-label="Carregando conversa"
     >
@@ -379,20 +414,49 @@ export function NotificationsListSkeleton({ rows = 6 }: { rows?: number }) {
 /** Configurações / verificação */
 export function SettingsSkeleton() {
   return (
-    <div className="space-y-6" aria-busy="true" aria-label="Carregando conta">
-      <CardShell className="grid gap-4 p-5 sm:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="space-y-2">
-            <Skeleton className="h-3 w-16" />
-            <Skeleton className="h-4 w-40" />
+    <div className="space-y-5" aria-busy="true" aria-label="Carregando conta">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <CardShell className="flex items-center gap-4 p-4">
+          <Skeleton className="size-14 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="h-3 w-48" />
           </div>
-        ))}
-      </CardShell>
-      <div className="flex flex-wrap gap-3">
-        <Skeleton className="h-9 w-28" />
-        <Skeleton className="h-9 w-24" />
-        <Skeleton className="h-9 w-16" />
+        </CardShell>
+        <CardShell className="space-y-2 p-4">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-6 w-28" />
+          <Skeleton className="h-3 w-full" />
+        </CardShell>
       </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <CardShell key={i} className="space-y-2 py-3">
+            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-3 w-20" />
+          </CardShell>
+        ))}
+      </div>
+      <CardShell className="space-y-4 p-5">
+        <Skeleton className="h-4 w-32" />
+        <div className="flex items-center gap-4">
+          <Skeleton className="size-20 rounded-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-28" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-9 w-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-9 w-full" />
+          </div>
+        </div>
+      </CardShell>
     </div>
   );
 }
@@ -401,7 +465,7 @@ export function VerificationSkeleton() {
   return (
     <div className="space-y-4" aria-busy="true" aria-label="Carregando verificação">
       <CardShell className="flex gap-3 p-5">
-        <Skeleton className="size-8 shrink-0 rounded-full" />
+        <Skeleton className="size-10 shrink-0 rounded-md" />
         <div className="min-w-0 flex-1 space-y-2">
           <Skeleton className="h-5 w-48" />
           <Skeleton className="h-3 w-32" />
@@ -410,12 +474,18 @@ export function VerificationSkeleton() {
       </CardShell>
       <div className="grid gap-3 sm:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <CardShell key={i} className="space-y-2">
+          <CardShell key={i} className="space-y-2 p-4">
             <Skeleton className="h-4 w-20" />
             <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-8 w-full" />
           </CardShell>
         ))}
       </div>
+      <CardShell className="space-y-3 p-5">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-3 w-64" />
+        <Skeleton className="h-9 w-40" />
+      </CardShell>
     </div>
   );
 }

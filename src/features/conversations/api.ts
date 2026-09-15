@@ -5,10 +5,15 @@ export type ConversationSummary = {
   orderId: string;
   lastMessageAt?: string | null;
   lastMessagePreview?: string | null;
+  unreadCount?: number;
+  buyerLastReadAt?: string | null;
+  sellerLastReadAt?: string | null;
+  adminLastReadAt?: string | null;
   createdAt: string;
   updatedAt: string;
   order: {
     id: string;
+    code: string;
     status: string;
     amountCents: number;
     buyerId: string;
@@ -27,6 +32,10 @@ export type ConversationSummary = {
     senderId: string;
     createdAt: string;
   }>;
+  partiesOnline?: {
+    buyer: boolean;
+    seller: boolean;
+  };
 };
 
 export type ConversationMessage = {
@@ -37,6 +46,8 @@ export type ConversationMessage = {
   clientId?: string | null;
   readAt?: string | null;
   createdAt: string;
+  /** Presente no payload realtime; mensagens internas nunca chegam ao app. */
+  internal?: boolean;
   sender?: { id: string; name: string | null; avatarUrl?: string | null };
 };
 
@@ -79,5 +90,12 @@ export async function sendConversationMessage(
   return api.post<{ message: ConversationMessage }>(
     `/api/conversations/${conversationId}/messages`,
     { body, clientId: opts?.clientId },
+  );
+}
+
+export async function markConversationRead(conversationId: string) {
+  return api.post<{ marked: number }>(
+    `/api/conversations/${conversationId}/read`,
+    {},
   );
 }

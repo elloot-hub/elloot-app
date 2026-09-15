@@ -4,6 +4,7 @@ export type PayoutStatus = "REQUESTED" | "PAID" | "FAILED" | "CANCELLED";
 
 export type Payout = {
   id: string;
+  code?: string;
   amountCents: number;
   pixKey: string;
   status: PayoutStatus;
@@ -18,6 +19,7 @@ export async function fetchMyPayouts() {
 export async function createPayout(input: {
   amountCents: number;
   pixKey?: string;
+  totpCode?: string;
 }) {
   return api.post<{ payout: Payout }>("/api/payouts", input);
 }

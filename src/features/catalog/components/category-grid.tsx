@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getCategoryVisual } from "@/features/catalog/category-visuals";
+import { getCategoryIcon } from "@/features/catalog/phosphor-icons";
 import { HOME_GRID_MOBILE_LIMIT } from "@/features/catalog/home-categories";
+import { marketCategoryHref } from "@/features/catalog/market-path";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import type { Category } from "@/types/api";
@@ -34,12 +36,12 @@ export function CategoryGrid({ categories, className, fadeBottom = false, viewAl
         >
           {categories.map((category, index) => {
             const visual = getCategoryVisual(category.slug);
-            const Icon = visual.Icon;
+            const Icon = getCategoryIcon(category.icon) ?? visual.Icon;
             const hideOnMobile = index >= mobileLimit;
             return (
               <Link
                 key={category.id}
-                href={`${routes.market}?category=${encodeURIComponent(category.slug)}`}
+                href={marketCategoryHref(category)}
                 className={cn(
                   "group relative aspect-[3/4] overflow-hidden rounded-md outline-none select-none",
                   "border border-primary/40 transition-[transform,box-shadow] duration-300",

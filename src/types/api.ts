@@ -29,23 +29,38 @@ export type ListingOffer = {
   stockQuantity: number;
   deliveryMode?: DeliveryMode;
   sortOrder: number;
+  /** Only returned to the listing owner (available auto-delivery lines). */
+  autoStockLines?: string[];
+  /** Only returned to the listing owner (available items with ids). */
+  autoStockItems?: Array<{ id: string; content: string }>;
 };
 
 export type User = {
   id: string;
   email: string;
   name: string | null;
+  username?: string | null;
+  bio?: string | null;
   avatarUrl: string | null;
   role: Role;
   kycStatus: KycStatus;
   pixKey?: string | null;
+  phone?: string | null;
+  emailVerifiedAt?: string | null;
+  phoneVerifiedAt?: string | null;
   createdAt: string;
+  nameChangedAt?: string | null;
+  nameChangeAvailableAt?: string | null;
+  nameChangeCooldownDays?: number;
+  totpEnabled?: boolean;
+  totpEnabledAt?: string | null;
   accounts?: Array<{ provider: string; createdAt: string }>;
 };
 
 export type AuthResponse = {
-  user: User;
-  accessToken: string;
+  user: User | null;
+  accessToken: string | null;
+  message?: string;
 };
 
 export type AuthProviders = {
@@ -72,6 +87,7 @@ export type Category = {
   isAdult: boolean;
   imageUrl: string | null;
   iconUrl: string | null;
+  icon: string | null;
   hasWebp: boolean;
   templateDescription: string | null;
   balanceReleaseDays: number;
@@ -130,7 +146,9 @@ export type ListingCategoryRef = {
 
 export type SellerPublic = {
   id: string;
+  username?: string | null;
   name: string | null;
+  bio?: string | null;
   avatarUrl?: string | null;
   createdAt?: string;
   lastSeenAt?: string | null;
@@ -154,6 +172,7 @@ export type SellerPublic = {
 
 export type ListingSummary = {
   id: string;
+  code?: string;
   title: string;
   priceCents: number;
   status: ListingStatus;
@@ -170,6 +189,7 @@ export type ListingSummary = {
 
 export type ListingDetail = {
   id: string;
+  code?: string;
   title: string;
   description: string;
   priceCents: number;
@@ -185,6 +205,10 @@ export type ListingDetail = {
   category: ListingCategoryRef;
   media: Array<{ id: string; url: string; sortOrder: number }>;
   offers?: ListingOffer[];
+  /** Only returned to the listing owner (available auto-delivery lines). */
+  autoStockLines?: string[];
+  /** Only returned to the listing owner (available items with ids). */
+  autoStockItems?: Array<{ id: string; content: string }>;
   seller: SellerPublic;
 };
 

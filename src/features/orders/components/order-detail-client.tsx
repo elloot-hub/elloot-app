@@ -27,6 +27,10 @@ import {
   type CheckoutUiPhase,
 } from "@/features/orders/components/payment-checkout-panel";
 import { OrderPaymentSummary } from "@/features/orders/components/order-payment-summary";
+import { OrderNextStepCallout } from "@/features/orders/components/order-next-step-callout";
+import { OrderTimeline } from "@/features/orders/components/order-timeline";
+import { PurchaseProtection } from "@/features/orders/components/purchase-protection";
+import { getOrderNextStep, type OrderFlowRole } from "@/features/orders/order-flow";
 import { useAuth } from "@/features/auth/context";
 import { ApiError } from "@/lib/api/errors";
 import { formatBRLFromCents } from "@/lib/format";
@@ -36,8 +40,11 @@ import { Button } from "@/components/ui/button";
 import { OrderReviewForm } from "@/features/orders/components/order-review-form";
 import { OrderDetailSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
 import { routes } from "@/lib/routes";
+import { listingRouteRef } from "@/lib/public-codes";
+import { formatOrderCode, orderRouteRef } from "@/lib/order-code";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type Props = {
   orderId: string;
@@ -56,6 +63,7 @@ export function OrderDetailClient({ orderId }: Props) {
   const [phase, setPhase] = useState<CheckoutUiPhase>("loading");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const redirectedRef = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -69,13 +77,13 @@ export function OrderDetailClient({ orderId }: Props) {
       if (redirectedRef.current) return;
       redirectedRef.current = true;
       setPhase("paid");
-      setMessage("Pagamento confirmado. Escrow ativado.");
+      setMessage("Pagamento confirmado. Proteção da compra ativada.");
       const chatId = paidOrder.conversation?.id;
       window.setTimeout(() => {
         if (chatId) {
           router.push(routes.conversation(chatId));
         } else {
-          router.replace(routes.order(paidOrder.id));
+          router.replace(routes.order(orderRouteRef(paidOrder)));
         }
       }, 1200);
     },
@@ -251,6 +259,13 @@ export function OrderDetailClient({ orderId }: Props) {
 
   const isBuyer = Boolean(user && order && user.id === order.buyer.id);
   const isSeller = Boolean(user && order && user.id === order.seller.id);
+  const flowRole: OrderFlowRole | null = isBuyer
+    ? "buyer"
+    : isSeller
+      ? "seller"
+      : null;
+  const nextStep =
+    order && flowRole ? getOrderNextStep(order, flowRole) : null;
   const awaitingPayment = order?.status === "PENDING_PAYMENT" && isBuyer;
 
   async function runAction(action: () => Promise<Order | void>) {
@@ -289,7 +304,7 @@ export function OrderDetailClient({ orderId }: Props) {
   }
 
   const cover = order.listing.media[0]?.url;
-  const shortId = order.id.slice(-8).toUpperCase();
+  const orderLabel = formatOrderCode(order);
 
   if (awaitingPayment) {
     return (
@@ -299,7 +314,7 @@ export function OrderDetailClient({ orderId }: Props) {
             Aguardando pagamento
           </Badge>
           <h1 className="min-w-0 text-2xl font-semibold break-words sm:text-3xl">
-            Pedido #{shortId}
+            Pedido #{orderLabel}
           </h1>
         </div>
 
@@ -361,7 +376,7 @@ export function OrderDetailClient({ orderId }: Props) {
                 })
               }
               onRenew={() => {
-                router.push(routes.listing(order.listing.id));
+                router.push(routes.listing(listingRouteRef(order.listing)));
               }}
             />
           </div>
@@ -369,6 +384,7 @@ export function OrderDetailClient({ orderId }: Props) {
           <div className="order-2 min-w-0 max-w-full space-y-4 lg:sticky lg:top-24">
             <OrderPaymentSummary
               orderId={order.id}
+              orderCode={order.code}
               listing={{
                 id: order.listing.id,
                 title: order.listing.title,
@@ -383,31 +399,8 @@ export function OrderDetailClient({ orderId }: Props) {
 
             <section className="min-w-0 max-w-full space-y-3 overflow-hidden rounded-md border border-border/60 bg-card/40 p-4 sm:p-5">
               <h3 className="text-sm font-semibold">Linha do tempo</h3>
-              <ul className="min-w-0 space-y-3">
-                <li className="flex min-w-0 gap-3">
-                  <span className="mt-1.5 size-2.5 shrink-0 rounded-full bg-primary" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">Pedido criado</p>
-                    <p className="text-xs text-muted-foreground">
-                      Aguardando pagamento PIX
-                    </p>
-                  </div>
-                </li>
-                <li className="flex min-w-0 gap-3 opacity-50">
-                  <span className="mt-1.5 size-2.5 shrink-0 rounded-full bg-muted-foreground/40" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">Pagamento confirmado</p>
-                    <p className="text-xs text-muted-foreground">Próximo passo</p>
-                  </div>
-                </li>
-                <li className="flex min-w-0 gap-3 opacity-50">
-                  <span className="mt-1.5 size-2.5 shrink-0 rounded-full bg-muted-foreground/40" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">Entrega e liberação</p>
-                    <p className="text-xs text-muted-foreground">Após confirmação</p>
-                  </div>
-                </li>
-              </ul>
+              <OrderTimeline status={order.status} />
+              {nextStep ? <OrderNextStepCallout step={nextStep} /> : null}
             </section>
           </div>
         </div>
@@ -440,7 +433,7 @@ export function OrderDetailClient({ orderId }: Props) {
           {orderStatusLabel(order.status)}
         </Badge>
         <h1 className="min-w-0 break-words text-2xl font-semibold sm:text-3xl">
-          Pedido #{shortId}
+          Pedido #{orderLabel}
         </h1>
         <p className="min-w-0 text-sm text-muted-foreground text-pretty">
           <span className="break-words">{order.listing.title}</span>
@@ -466,7 +459,13 @@ export function OrderDetailClient({ orderId }: Props) {
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)] lg:items-start lg:gap-8">
         <div className="order-1 min-w-0 max-w-full space-y-4">
+          {nextStep ? <OrderNextStepCallout step={nextStep} /> : null}
+
           <OrderDetailsBlock order={order} />
+
+          {order.escrowHold ? (
+            <PurchaseProtection hold={order.escrowHold} />
+          ) : null}
 
           {order.status === "PAID" && isSeller ? (
             <div className="space-y-4 rounded-md border border-border/60 bg-card/50 p-4 sm:p-5">
@@ -492,36 +491,60 @@ export function OrderDetailClient({ orderId }: Props) {
             </div>
           ) : null}
 
-          {(order.status === "PAID" || order.status === "DELIVERED") &&
-          isBuyer ? (
+          {order.status === "PAID" && isBuyer && order.conversation?.id ? (
+            <div className="space-y-3 rounded-md border border-border/60 bg-card/50 p-4 sm:p-5">
+              <p className="text-sm font-medium">Aguardando entrega</p>
+              <p className="text-sm text-muted-foreground text-pretty">
+                O pagamento está protegido. Assim que o vendedor entregar, você
+                poderá confirmar o recebimento.
+              </p>
+              <Link
+                href={routes.conversation(order.conversation.id)}
+                className={cn(
+                  buttonVariants({ variant: "outline" }),
+                  "h-10 w-full",
+                )}
+              >
+                Relatar problema
+              </Link>
+            </div>
+          ) : null}
+
+          {order.status === "DELIVERED" && isBuyer ? (
             <div className="space-y-4 rounded-md border border-border/60 bg-card/50 p-4 sm:p-5">
               <div className="flex items-start gap-2 text-sm">
                 <CheckCircle2Icon className="mt-0.5 size-4 shrink-0 text-emerald-500" />
                 <p className="text-muted-foreground text-pretty">
-                  Confirme apenas se recebeu o que comprou. Isso libera o
-                  escrow para o vendedor.
+                  Confirme apenas se recebeu o que comprou. Isso libera o valor
+                  ao vendedor e não pode ser desfeito.
                 </p>
               </div>
               <Button
                 className="h-11 w-full"
                 disabled={actionPending}
-                onClick={() =>
-                  void runAction(async () => {
-                    await confirmOrder(order.id);
-                    setMessage("Pedido concluído. Escrow liberado.");
-                  })
-                }
+                onClick={() => setConfirmOpen(true)}
               >
-                {actionPending ? "Confirmando…" : "Confirmar entrega"}
+                Confirmar recebimento
               </Button>
+              {order.conversation?.id && !order.dispute ? (
+                <Link
+                  href={routes.conversation(order.conversation.id)}
+                  className={cn(
+                    buttonVariants({ variant: "ghost" }),
+                    "h-9 w-full text-muted-foreground",
+                  )}
+                >
+                  Relatar problema
+                </Link>
+              ) : null}
             </div>
           ) : null}
 
           {order.dispute ? (
             <div className="space-y-3 rounded-md border border-orange-500/25 bg-orange-500/10 p-4 sm:p-5">
-              <p className="text-sm font-medium">Disputa aberta</p>
+              <p className="text-sm font-medium">Mediação em andamento</p>
               <p className="text-sm text-muted-foreground text-pretty">
-                O escrow permanece retido. Acompanhe e alinhe detalhes pelo
+                O valor permanece protegido. Acompanhe e alinhe detalhes pelo
                 chat do pedido.
               </p>
               {order.conversation?.id ? (
@@ -532,23 +555,10 @@ export function OrderDetailClient({ orderId }: Props) {
                     "h-10 w-full",
                   )}
                 >
-                  Abrir chat da disputa
+                  Abrir chat da mediação
                 </Link>
               ) : null}
             </div>
-          ) : (isBuyer || isSeller) &&
-            (order.status === "PAID" || order.status === "DELIVERED") &&
-            order.conversation?.id ? (
-            <p className="rounded-md border border-border/60 bg-card/40 px-4 py-3 text-xs text-muted-foreground text-pretty">
-              Problema com a entrega? Use{" "}
-              <Link
-                href={routes.conversation(order.conversation.id)}
-                className="font-medium text-foreground underline-offset-4 hover:text-primary hover:underline"
-              >
-                Relatar problema
-              </Link>{" "}
-              no chat do pedido.
-            </p>
           ) : null}
 
           {order.status === "COMPLETED" ? (
@@ -572,6 +582,7 @@ export function OrderDetailClient({ orderId }: Props) {
         <div className="order-2 min-w-0 max-w-full space-y-4 lg:sticky lg:top-24">
           <OrderPaymentSummary
             orderId={order.id}
+            orderCode={order.code}
             listing={{
               id: order.listing.id,
               title: order.listing.title,
@@ -584,7 +595,10 @@ export function OrderDetailClient({ orderId }: Props) {
             sellerName={order.seller.name ?? order.seller.email}
           />
 
-          <OrderTimeline status={order.status} />
+          <section className="min-w-0 max-w-full space-y-3 overflow-hidden rounded-md border border-border/60 bg-card/40 p-4 sm:p-5">
+            <h3 className="text-sm font-semibold">Linha do tempo</h3>
+            <OrderTimeline status={order.status} />
+          </section>
 
           {order.conversation?.id ? (
             <Link
@@ -614,82 +628,24 @@ export function OrderDetailClient({ orderId }: Props) {
           </Link>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Liberar pagamento ao vendedor?"
+        description="Só confirme se você já recebeu o produto/conta conforme anunciado. Isso libera o valor ao vendedor e não pode ser desfeito."
+        confirmLabel="Sim, confirmei o recebimento"
+        cancelLabel="Ainda não"
+        variant="destructive"
+        loading={actionPending}
+        onConfirm={async () => {
+          await runAction(async () => {
+            await confirmOrder(order.id);
+            setMessage("Pedido concluído. Valor liberado ao vendedor.");
+          });
+        }}
+      />
     </div>
-  );
-}
-
-function OrderTimeline({ status }: { status: Order["status"] }) {
-  const steps = [
-    {
-      id: "created",
-      title: "Pedido criado",
-      hint: "Registro inicial",
-      done: true,
-    },
-    {
-      id: "paid",
-      title: "Pagamento confirmado",
-      hint: "PIX aprovado",
-      done: ["PAID", "DELIVERED", "COMPLETED", "DISPUTED"].includes(status),
-    },
-    {
-      id: "delivery",
-      title: "Entrega e liberação",
-      hint: "Confirmação do comprador",
-      done: status === "COMPLETED",
-    },
-  ] as const;
-
-  const cancelled =
-    status === "CANCELLED" || status === "EXPIRED" || status === "REFUNDED";
-
-  return (
-    <section className="min-w-0 max-w-full space-y-3 overflow-hidden rounded-md border border-border/60 bg-card/40 p-4 sm:p-5">
-      <h3 className="text-sm font-semibold">Linha do tempo</h3>
-      <ul className="min-w-0 space-y-3">
-        {steps.map((step) => {
-          const active = step.done && !cancelled;
-          return (
-            <li
-              key={step.id}
-              className={cn(
-                "flex min-w-0 gap-3",
-                !active && !cancelled && "opacity-50",
-                cancelled && step.id !== "created" && "opacity-40",
-              )}
-            >
-              <span
-                className={cn(
-                  "mt-1.5 size-2.5 shrink-0 rounded-full",
-                  active || (cancelled && step.id === "created")
-                    ? "bg-primary"
-                    : "bg-muted-foreground/40",
-                )}
-              />
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{step.title}</p>
-                <p className="text-xs text-muted-foreground">{step.hint}</p>
-              </div>
-            </li>
-          );
-        })}
-        {cancelled ? (
-          <li className="flex min-w-0 gap-3">
-            <span className="mt-1.5 size-2.5 shrink-0 rounded-full bg-destructive" />
-            <div className="min-w-0">
-              <p className="text-sm font-medium">
-                {status === "EXPIRED"
-                  ? "Pedido expirado"
-                  : status === "REFUNDED"
-                    ? "Reembolsado"
-                    : "Pedido cancelado"}
-              </p>
-              <p className="text-xs text-muted-foreground">Fluxo encerrado</p>
-            </div>
-          </li>
-        ) : null}
-      </ul>
-    </section>
   );
 }
 
@@ -714,7 +670,7 @@ function OrderDetailsBlock({ order }: { order: Order }) {
         </div>
         <div className="min-w-0 flex-1 space-y-1 overflow-hidden">
           <Link
-            href={routes.listing(order.listing.id)}
+            href={routes.listing(listingRouteRef(order.listing))}
             className="text-sm font-medium hover:text-primary"
           >
             Ver anúncio
@@ -754,10 +710,10 @@ function OrderDetailsBlock({ order }: { order: Order }) {
         </div>
         {order.escrowHold ? (
           <div className="min-w-0">
-            <dt className="text-muted-foreground">Escrow</dt>
+            <dt className="text-muted-foreground">Proteção</dt>
             <dd className="mt-1 font-medium">
               {formatBRLFromCents(order.escrowHold.amountCents)}
-              {order.escrowHold.releasedAt ? " · liberado" : " · retido"}
+              {order.escrowHold.releasedAt ? " · liberado" : " · protegido"}
             </dd>
           </div>
         ) : null}

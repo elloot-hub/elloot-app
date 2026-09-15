@@ -17,7 +17,6 @@ export default function DashboardListingsPage() {
       <DashboardShell
         title="Meus anúncios"
         description="Gerencie o que você publicou no marketplace."
-        breadcrumb={["Conta", "Vendas", "Meus anúncios"]}
         actions={
           <Link
             href={routes.sell}

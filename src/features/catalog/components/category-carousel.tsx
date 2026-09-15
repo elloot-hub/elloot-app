@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { getCategoryVisual } from "@/features/catalog/category-visuals";
-import { routes } from "@/lib/routes";
+import { marketCategoryHref } from "@/features/catalog/market-path";
 import { cn } from "@/lib/utils";
 import type { Category } from "@/types/api";
 
@@ -36,7 +36,7 @@ export function CategoryCarousel({ categories, className }: Props) {
               return (
                 <Link
                   key={`${category.id}-${index}`}
-                  href={`${routes.market}?category=${encodeURIComponent(category.slug)}`}
+                  href={marketCategoryHref(category)}
                   className={cn(
                     "inline-flex shrink-0 items-center gap-2 rounded-full border border-border/60 bg-muted/40 py-1.5 pr-3.5 pl-1.5",
                     "text-sm text-muted-foreground transition-colors",

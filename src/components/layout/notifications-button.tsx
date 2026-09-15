@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { BellIcon, CheckIcon, InboxIcon } from "lucide-react";
+import { BellIcon, CheckIcon, InboxIcon, Settings2Icon } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Popover,
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/popover";
 import { useAuth } from "@/features/auth/context";
 import { useNotifications } from "@/features/notifications";
+import { NotificationPreferencesDialog } from "@/features/notifications/components/notification-preferences-dialog";
 import { safeInternalHref } from "@/features/notifications/safe-href";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ export function NotificationsButton({ className }: Props) {
   const { token } = useAuth();
   const { items, unreadCount, markRead, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
+  const [prefsOpen, setPrefsOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("inbox");
 
   const visible = useMemo(() => {
@@ -70,129 +72,154 @@ export function NotificationsButton({ className }: Props) {
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        className={cn(
-          buttonVariants({ variant: "outline", size: "icon-sm" }),
-          "relative rounded-full",
-          className,
-        )}
-        aria-label={
-          unreadCount > 0
-            ? `Notificações (${unreadCount} não lidas)`
-            : "Notificações"
-        }
-        title="Notificações"
-      >
-        <BellIcon className="size-4" />
-        {unreadCount > 0 ? (
-          <span
-            aria-hidden
-            className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground ring-2 ring-background tabular-nums"
-          >
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        ) : null}
-      </PopoverTrigger>
-
-      <PopoverContent
-        align="end"
-        sideOffset={8}
-        className="w-[min(100vw-2rem,22rem)] gap-0 overflow-hidden p-0"
-      >
-        <PopoverHeader className="flex flex-row items-center justify-between gap-3 border-b border-border/60 px-3 py-2.5">
-          <div>
-            <PopoverTitle>Notificações</PopoverTitle>
-            <PopoverDescription className="text-xs">
-              Pedidos, mensagens e conta em tempo real
-            </PopoverDescription>
-          </div>
-          {unreadCount > 0 ? (
-            <button
-              type="button"
-              onClick={() => void markAllRead()}
-              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-            >
-              <CheckIcon className="size-3.5" />
-              Marcar lidas
-            </button>
-          ) : null}
-        </PopoverHeader>
-
-        <div className="flex gap-1 border-b border-border/60 p-1.5">
-          <TabButton
-            active={tab === "inbox"}
-            onClick={() => setTab("inbox")}
-            count={items.filter((i) => !i.read).length}
-          >
-            Caixa de entrada
-          </TabButton>
-          <TabButton
-            active={tab === "archived"}
-            onClick={() => setTab("archived")}
-          >
-            Lidas
-          </TabButton>
-        </div>
-
-        <div className="max-h-80 overflow-y-auto">
-          {visible.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
-              <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                <InboxIcon className="size-4" />
-              </span>
-              <p className="text-sm font-medium">Nenhuma notificação</p>
-              <p className="text-xs text-muted-foreground text-pretty">
-                Avisos de chat, disputas e pedidos aparecem aqui em tempo real.
-              </p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-border/50">
-              {visible.map((item) => {
-                const safeHref = safeInternalHref(item.href);
-                return (
-                  <li key={item.id}>
-                    {safeHref ? (
-                      <Link
-                        href={safeHref}
-                        onClick={() => void markRead(item.id)}
-                        className={cn(
-                          "flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
-                          !item.read && "bg-primary/5",
-                        )}
-                      >
-                        <NotificationBody item={item} />
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => void markRead(item.id)}
-                        className={cn(
-                          "flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
-                          !item.read && "bg-primary/5",
-                        )}
-                      >
-                        <NotificationBody item={item} />
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          className={cn(
+            buttonVariants({ variant: "outline", size: "icon-sm" }),
+            "relative rounded-full",
+            className,
           )}
-        </div>
+          aria-label={
+            unreadCount > 0
+              ? `Notificações (${unreadCount} não lidas)`
+              : "Notificações"
+          }
+          title="Notificações"
+        >
+          <BellIcon className="size-4" />
+          {unreadCount > 0 ? (
+            <span
+              aria-hidden
+              className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground ring-2 ring-background tabular-nums"
+            >
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          ) : null}
+        </PopoverTrigger>
 
-        <div className="border-t border-border/60 p-2">
-          <Link
-            href={routes.dashboardNotifications}
-            onClick={() => setOpen(false)}
-            className="block rounded-md px-2 py-1.5 text-center text-xs font-medium text-primary hover:bg-muted/40"
-          >
-            Ver todas
-          </Link>
-        </div>
-      </PopoverContent>
-    </Popover>
+        <PopoverContent
+          align="end"
+          sideOffset={8}
+          className="w-[min(100vw-2rem,22rem)] gap-0 overflow-hidden p-0"
+        >
+          <PopoverHeader className="flex flex-row items-start justify-between gap-3 border-b border-border/60 px-3 py-2.5">
+            <div className="min-w-0">
+              <PopoverTitle>Notificações</PopoverTitle>
+              <PopoverDescription className="text-xs">
+                Pedidos, mensagens e conta em tempo real
+              </PopoverDescription>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              {unreadCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => void markAllRead()}
+                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs font-medium text-primary hover:bg-muted/50"
+                >
+                  <CheckIcon className="size-3.5" />
+                  <span className="hidden sm:inline">Marcar lidas</span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setPrefsOpen(true);
+                }}
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                  "rounded-md",
+                )}
+                aria-label="Configurar notificações"
+                title="Configurar notificações"
+              >
+                <Settings2Icon className="size-3.5" />
+              </button>
+            </div>
+          </PopoverHeader>
+
+          <div className="flex gap-1 border-b border-border/60 p-1.5">
+            <TabButton
+              active={tab === "inbox"}
+              onClick={() => setTab("inbox")}
+              count={items.filter((i) => !i.read).length}
+            >
+              Caixa de entrada
+            </TabButton>
+            <TabButton
+              active={tab === "archived"}
+              onClick={() => setTab("archived")}
+            >
+              Lidas
+            </TabButton>
+          </div>
+
+          <div className="max-h-80 overflow-y-auto">
+            {visible.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
+                <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <InboxIcon className="size-4" />
+                </span>
+                <p className="text-sm font-medium">Nenhuma notificação</p>
+                <p className="text-xs text-muted-foreground text-pretty">
+                  Avisos de chat, disputas e pedidos aparecem aqui em tempo
+                  real.
+                </p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border/50">
+                {visible.map((item) => {
+                  const safeHref = safeInternalHref(item.href);
+                  return (
+                    <li key={item.id}>
+                      {safeHref ? (
+                        <Link
+                          href={safeHref}
+                          onClick={() => void markRead(item.id)}
+                          className={cn(
+                            "flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
+                            !item.read && "bg-primary/5",
+                          )}
+                        >
+                          <NotificationBody item={item} />
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void markRead(item.id)}
+                          className={cn(
+                            "flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/60",
+                            !item.read && "bg-primary/5",
+                          )}
+                        >
+                          <NotificationBody item={item} />
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div className="border-t border-border/60 p-2">
+            <Link
+              href={routes.dashboardNotifications}
+              onClick={() => setOpen(false)}
+              className="block rounded-md px-2 py-1.5 text-center text-xs font-medium text-primary hover:bg-muted/40"
+            >
+              Ver todas
+            </Link>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      <NotificationPreferencesDialog
+        open={prefsOpen}
+        onOpenChange={setPrefsOpen}
+      />
+    </>
   );
 }
 

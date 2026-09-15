@@ -3,35 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import {
-  BadgeCheckIcon,
-  BanknoteIcon,
-  BellIcon,
-  ChevronDownIcon,
-  HeartIcon,
-  HelpCircleIcon,
-  LayoutDashboardIcon,
-  MenuIcon,
-  MessageCircleIcon,
-  MessageSquareIcon,
-  PackageIcon,
-  SettingsIcon,
-  ShoppingBagIcon,
-  StarIcon,
-  StoreIcon,
-  TrendingUpIcon,
-  UserIcon,
-  WalletIcon,
-  XIcon,
-} from "lucide-react";
-import { FaDiscord } from "react-icons/fa6";
+import { BadgeCheckIcon, BadgePlus, BanknoteIcon, BellIcon, ChartNoAxesColumn, ChartNoAxesCombined, ChevronDownIcon, CircleQuestionMark, HeartIcon, LayoutDashboardIcon, MenuIcon, MessageCircleIcon, MessageSquareIcon, MessageSquareText, PackageIcon, SettingsIcon, ShoppingBagIcon, ShoppingBasket, StarIcon, StoreIcon, TrendingUpIcon, UserIcon, WalletIcon, XIcon, } from "lucide-react";
 import { useAuth } from "@/features/auth/context";
+import { NavBadge } from "@/features/dashboard/components/nav-badge";
+import { useDashboardSummaryOptional } from "@/features/dashboard/context/dashboard-summary-context";
+import { hasSellerSurface } from "@/features/dashboard/dashboard-profile";
+import type { DashboardNavCountKey } from "@/features/dashboard/types";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
-
-const DISCORD_URL = "https://discord.gg/";
 
 type NavItem = {
   href: string;
@@ -39,6 +20,9 @@ type NavItem = {
   icon: typeof LayoutDashboardIcon;
   exact?: boolean;
   soon?: boolean;
+  new?: boolean;
+  beta?: boolean;
+  countKey?: DashboardNavCountKey;
 };
 
 type NavSection = {
@@ -66,6 +50,15 @@ const SECTIONS: NavSection[] = [
         href: routes.dashboardNotifications,
         label: "Notificações",
         icon: BellIcon,
+        countKey: "notifications",
+        new: true,
+      },
+      {
+        href: routes.dashboardMessages,
+        label: "Elloot Chat",
+        icon: MessageSquareText,
+        countKey: "messages",
+        beta: true,
       },
     ],
   },
@@ -78,7 +71,8 @@ const SECTIONS: NavSection[] = [
       {
         href: routes.dashboardPurchases,
         label: "Minhas compras",
-        icon: ShoppingBagIcon,
+        icon: ShoppingBasket,
+        countKey: "purchases",
       },
       {
         href: routes.dashboardFavorites,
@@ -88,17 +82,12 @@ const SECTIONS: NavSection[] = [
       {
         href: routes.dashboardQuestionsMine,
         label: "Minhas perguntas",
-        icon: MessageCircleIcon,
+        icon: CircleQuestionMark,
       },
       {
         href: routes.dashboardReviewsMine,
         label: "Minhas avaliações",
         icon: StarIcon,
-      },
-      {
-        href: routes.dashboardMessages,
-        label: "Mensagens",
-        icon: MessageSquareIcon,
       },
     ],
   },
@@ -108,26 +97,30 @@ const SECTIONS: NavSection[] = [
     icon: TrendingUpIcon,
     defaultOpen: true,
     items: [
-      { href: routes.sell, label: "Criar anúncio", icon: StoreIcon },
+      { href: routes.sell, label: "Criar anúncio", icon: BadgePlus },
       {
         href: routes.dashboardListings,
         label: "Meus anúncios",
         icon: StoreIcon,
+        countKey: "listingsAttention",
       },
       {
         href: routes.dashboardSales,
         label: "Minhas vendas",
         icon: PackageIcon,
+        countKey: "sales",
       },
       {
         href: routes.dashboardMetricsTab("overview"),
         label: "Métricas de Vendas",
-        icon: TrendingUpIcon,
+        icon: ChartNoAxesCombined,
+        beta: true,
       },
       {
         href: routes.dashboardQuestionsReceived,
         label: "Perguntas recebidas",
         icon: MessageCircleIcon,
+        countKey: "questionsReceived",
       },
       {
         href: routes.dashboardReviews,
@@ -174,7 +167,46 @@ const SECTIONS: NavSection[] = [
   },
 ];
 
-const ALL_NAV_ITEMS: NavItem[] = SECTIONS.flatMap((s) => s.items);
+const NAV_OPEN_STORAGE_PREFIX = "elloot.dashboard.nav.open.v1:";
+
+function navOpenStorageKey(userId: string) {
+  return `${NAV_OPEN_STORAGE_PREFIX}${userId}`;
+}
+
+function defaultNavOpenState(isSeller: boolean): Record<string, boolean> {
+  return Object.fromEntries(
+    SECTIONS.map((section) => {
+      if (!isSeller && (section.id === "seller" || section.id === "finance")) {
+        return [section.id, false];
+      }
+      return [section.id, section.defaultOpen ?? true];
+    }),
+  );
+}
+
+function loadNavOpenState(userId: string): Record<string, boolean> | null {
+  try {
+    const raw = window.localStorage.getItem(navOpenStorageKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return null;
+    const next: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === "boolean") next[key] = value;
+    }
+    return Object.keys(next).length > 0 ? next : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveNavOpenState(userId: string, open: Record<string, boolean>) {
+  try {
+    window.localStorage.setItem(navOpenStorageKey(userId), JSON.stringify(open));
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
 
 function hrefPath(href: string) {
   return href.split("?")[0] ?? href;
@@ -186,9 +218,9 @@ function pathMatchesItem(pathname: string, item: NavItem) {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-function isActive(pathname: string, item: NavItem) {
+function isActive(pathname: string, item: NavItem, candidates: NavItem[]) {
   if (!pathMatchesItem(pathname, item)) return false;
-  const matches = ALL_NAV_ITEMS.filter((candidate) =>
+  const matches = candidates.filter((candidate) =>
     pathMatchesItem(pathname, candidate),
   );
   const best = matches.reduce((a, b) =>
@@ -212,40 +244,64 @@ function getGreeting() {
   return "Boa madrugada";
 }
 
-function NavBody({
-  onNavigate,
-  className,
-}: {
-  onNavigate?: () => void;
-  className?: string;
-}) {
+function NavBody({ onNavigate, className, }: { onNavigate?: () => void; className?: string; }) {
   const pathname = usePathname();
   const { user, loading } = useAuth();
-  const [open, setOpen] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(SECTIONS.map((s) => [s.id, s.defaultOpen ?? true])),
+  const summaryCtx = useDashboardSummaryOptional();
+  const navCounts = summaryCtx?.summary?.counts;
+  const stats = summaryCtx?.summary?.stats;
+
+  const isSeller = stats ? hasSellerSurface(stats) : null;
+
+  const navItems = useMemo(
+    () => SECTIONS.flatMap((s) => s.items),
+    [],
   );
 
-  const displayName =
-    user?.name?.trim()?.split(/\s+/)[0] ||
-    user?.email?.split("@")[0] ||
-    "Usuário";
+  const [open, setOpen] = useState<Record<string, boolean>>(() =>
+    defaultNavOpenState(true),
+  );
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const saved = loadNavOpenState(user.id);
+    if (saved) {
+      setOpen({ ...defaultNavOpenState(isSeller ?? true), ...saved });
+      return;
+    }
+
+    if (isSeller === null) return;
+    setOpen(defaultNavOpenState(isSeller));
+  }, [user?.id, isSeller]);
+
+  function setSectionOpen(updater: (prev: Record<string, boolean>) => Record<string, boolean>) {
+    setOpen((prev) => {
+      const next = updater(prev);
+      if (user?.id) saveNavOpenState(user.id, next);
+      return next;
+    });
+  }
+
+  const displayName = user?.name?.trim()?.split(/\s+/)[0] || user?.email?.split("@")[0] || "Usuário";
   const greeting = getGreeting();
 
   const activeSectionId = useMemo(() => {
     for (const section of SECTIONS) {
-      if (section.items.some((item) => isActive(pathname, item))) {
+      if (section.items.some((item) => isActive(pathname, item, navItems))) {
         return section.id;
       }
     }
     return null;
-  }, [pathname]);
+  }, [pathname, navItems]);
 
   useEffect(() => {
     if (!activeSectionId) return;
-    setOpen((prev) =>
+    setSectionOpen((prev) =>
       prev[activeSectionId] ? prev : { ...prev, [activeSectionId]: true },
     );
-  }, [activeSectionId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to route-driven section
+  }, [activeSectionId, user?.id]);
 
   return (
     <div className={cn("flex h-full min-h-0 flex-col", className)}>
@@ -299,9 +355,8 @@ function NavBody({
       <nav className="mt-3 min-h-0 flex-1 space-y-1 overflow-y-auto pr-0.5">
         {SECTIONS.map((section) => {
           const expanded = open[section.id] ?? true;
-          const SectionIcon = section.icon;
           const sectionHasActive = section.items.some((item) =>
-            isActive(pathname, item),
+            isActive(pathname, item, navItems),
           );
 
           return (
@@ -309,7 +364,10 @@ function NavBody({
               <button
                 type="button"
                 onClick={() =>
-                  setOpen((prev) => ({ ...prev, [section.id]: !expanded }))
+                  setSectionOpen((prev) => ({
+                    ...prev,
+                    [section.id]: !expanded,
+                  }))
                 }
                 className={cn(
                   "flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
@@ -318,7 +376,6 @@ function NavBody({
                     : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
                 )}
               >
-                <SectionIcon className="size-4 shrink-0 opacity-80" />
                 <span className="min-w-0 flex-1 truncate text-left">
                   {section.label}
                 </span>
@@ -333,8 +390,7 @@ function NavBody({
               {expanded ? (
                 <ul className="relative ml-4 space-y-0.5 border-l border-border/60 pl-2">
                   {section.items.map((item) => {
-                    const active = isActive(pathname, item);
-                    const Icon = item.icon;
+                    const active = isActive(pathname, item, navItems);
                     return (
                       <li key={`${section.id}-${item.href}-${item.label}`}>
                         <Link
@@ -343,16 +399,35 @@ function NavBody({
                           className={cn(
                             "relative flex items-center gap-2 rounded-sm px-2.5 py-2 text-sm font-medium transition-colors",
                             active
-                              ? "bg-primary/10 text-primary before:absolute before:-left-[calc(0.5rem+1px)] before:top-1 before:bottom-1 before:w-[3px] before:rounded-full before:bg-primary"
+                              ? "bg-primary/10 text-primary before:absolute before:-left-[calc(0.5rem+1px)] before:top-1 before:bottom-1 before:w-[2px] before:rounded-full before:bg-primary"
                               : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
                           )}
                         >
+                          <div className="size-4 shrink-0">
+                            <item.icon className="size-4" />
+                          </div>
                           <span className="min-w-0 flex-1 truncate">
                             {item.label}
                           </span>
+                          {item.countKey && navCounts ? (
+                            <NavBadge
+                              count={navCounts[item.countKey]}
+                              label={`${navCounts[item.countKey]} pendências em ${item.label}`}
+                            />
+                          ) : null}
                           {item.soon ? (
                             <span className="rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-muted-foreground uppercase">
                               Em breve
+                            </span>
+                          ) : null}
+                          {item.beta ? (
+                            <span className="rounded-md bg-primary px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-white uppercase">
+                              BETA
+                            </span>
+                          ) : null}
+                          {item.new ? (
+                            <span className="rounded-md bg-primary px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-white uppercase">
+                              NOVO
                             </span>
                           ) : null}
                         </Link>
@@ -367,11 +442,11 @@ function NavBody({
       </nav>
     </div>
   );
-}
+};
 
 export function DashboardNav({ className }: { className?: string }) {
   return <NavBody className={className} />;
-}
+};
 
 export function DashboardMobileMenu() {
   const [open, setOpen] = useState(false);
@@ -433,4 +508,4 @@ export function DashboardMobileMenu() {
       ) : null}
     </>
   );
-}
+};

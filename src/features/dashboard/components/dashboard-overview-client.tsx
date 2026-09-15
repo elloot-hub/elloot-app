@@ -1,234 +1,352 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { AlertTriangleIcon, BadgeCheckIcon, BellIcon, ClockIcon, MessageSquareIcon, PackageIcon, PlusCircleIcon, ShieldCheckIcon, ShoppingBagIcon, StoreIcon, } from "lucide-react";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
+import { BellIcon, MessageSquareIcon, PackageIcon, ShieldCheckIcon, ShoppingBagIcon, StoreIcon, TriangleAlertIcon, } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { useAuth } from "@/features/auth/context";
-import { fetchConversations } from "@/features/conversations";
-import { fetchMyListings } from "@/features/listings/api";
-import { fetchMyOrders } from "@/features/orders/api";
-import { fetchWallet } from "@/features/wallet";
-import { formatBRLFromCents } from "@/lib/format";
+import { DashboardActionQueue } from "@/features/dashboard/components/action-queue";
+import { DashboardFinanceStrip } from "@/features/dashboard/components/dashboard-finance-strip";
+import { DashboardQuickLinks } from "@/features/dashboard/components/dashboard-quick-links";
+import { DashboardSalesPulse } from "@/features/dashboard/components/dashboard-sales-pulse";
+import { ListingHealthCard } from "@/features/dashboard/components/listing-health-card";
+import { DashboardKycBanner, DashboardOverviewOnboarding, } from "@/features/dashboard/components/role-block";
+import { hasFinanceSurface, resolveDashboardProfile, shouldShowKycBanner, } from "@/features/dashboard/dashboard-profile";
+import { useDashboardSummary } from "@/features/dashboard/context/dashboard-summary-context";
+import { OverviewSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
+import type { DashboardNavCounts, DashboardSummaryStats, } from "@/features/dashboard/types";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
-import { OverviewSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
+
+const ACTION_LIMIT = 5;
+
+const EMPTY_STATS: DashboardSummaryStats = {
+  balanceCents: 0,
+  pendingReleaseCents: 0,
+  releasesTodayCents: 0,
+  releasesUpcomingCents: 0,
+  inDisputeCents: 0,
+  pendingPayoutCents: 0,
+  listingsTotal: 0,
+  activeListings: 0,
+  listingsPendingReview: 0,
+  listingsRejected: 0,
+  salesPending: 0,
+  salesCompleted: 0,
+  purchasesOpen: 0,
+  purchasesCompleted: 0,
+  conversations: 0,
+  kycStatus: "NONE",
+};
 
 export function DashboardOverviewClient() {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    listings: 0,
-    activeListings: 0,
-    salesPending: 0,
-    salesCompleted: 0,
-    purchasesOpen: 0,
-    conversations: 0,
-    balanceCents: 0,
-    pendingReleaseCents: 0,
-  });
+  const { summary, loading, error } = useDashboardSummary();
+  const stats = summary?.stats ?? EMPTY_STATS;
+  const counts = summary?.counts;
+  const actions = summary?.actions ?? [];
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const [listingsRes, ordersRes, walletRes, convRes] = await Promise.all([
-          fetchMyListings().catch(() => ({ listings: [] })),
-          fetchMyOrders().catch(() => ({ orders: [] })),
-          fetchWallet().catch(() => ({ balanceCents: 0, entries: [] })),
-          fetchConversations().catch(() => ({ conversations: [] })),
-        ]);
-        if (cancelled || !user) return;
+  const profile = useMemo(
+    () => resolveDashboardProfile(stats, actions),
+    [stats, actions],
+  );
 
-        const listings = listingsRes.listings ?? [];
-        const orders = ordersRes.orders ?? [];
+  const showSellerSurface = profile === "seller-only" || profile === "hybrid" || stats.listingsTotal > 0 || stats.salesCompleted > 0 || stats.salesPending > 0;
+  const showBuyerSurface = profile === "buyer-only" || profile === "hybrid" || stats.purchasesOpen > 0 || stats.purchasesCompleted > 0;
 
-        const asSeller = orders.filter((o) => o.seller.id === user.id);
-        const asBuyer = orders.filter((o) => o.buyer.id === user.id);
+  const showFinance = hasFinanceSurface(stats);
+  const visibleActions = actions.slice(0, ACTION_LIMIT);
+  const hasMoreActions = actions.length > ACTION_LIMIT;
 
-        const pendingReleaseCents = asSeller
-          .filter((o) => o.status === "PAID" || o.status === "DELIVERED")
-          .reduce((sum, o) => sum + (o.amountCents - o.feeCents), 0);
-
-        setStats({
-          listings: listings.length,
-          activeListings: listings.filter((l) => l.status === "ACTIVE").length,
-          salesPending: asSeller.filter(
-            (o) => o.status === "PAID" || o.status === "DELIVERED",
-          ).length,
-          salesCompleted: asSeller.filter((o) => o.status === "COMPLETED")
-            .length,
-          purchasesOpen: asBuyer.filter((o) =>
-            ["PENDING_PAYMENT", "PAID", "DELIVERED", "DISPUTED"].includes(
-              o.status,
-            ),
-          ).length,
-          conversations: convRes.conversations?.length ?? 0,
-          balanceCents: walletRes.balanceCents ?? 0,
-          pendingReleaseCents,
-        });
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-
-  const verified = user?.kycStatus === "APPROVED";
-
-  if (loading) {
+  if (loading && !summary) {
     return <OverviewSkeleton />;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Link
-          href={routes.dashboardWallet}
-          className="rounded-md bg-primary p-4 text-primary-foreground shadow-sm transition-opacity hover:opacity-95"
-        >
-          <p className="text-sm font-medium">
-            Saldo disponível
-          </p>
-          <p className="mt-1 text-2xl font-bold tabular-nums sm:text-3xl">
-            {formatBRLFromCents(stats.balanceCents)}
-          </p>
-          <p className="text-xs opacity-80">Liberado na carteira</p>
-        </Link>
+    <div className="space-y-5">
+      {error ? (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
 
-        <Link
-          href={routes.dashboardSales}
-          className="rounded-md border border-border/60 bg-card/40 p-4 transition-colors hover:border-primary/40"
-        >
-          <p className="text-sm font-medium">
-            Saldo a liberar
-          </p>
-          <p className="mt-1 text-2xl font-bold text-primary tabular-nums sm:text-3xl">
-            {formatBRLFromCents(stats.pendingReleaseCents)}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Em escrow / aguardando confirmação
-          </p>
-        </Link>
+      {profile === "new" ? (
+        <>
+          <DashboardOverviewOnboarding />
+          <InsightGrid
+            stats={stats}
+            counts={counts}
+            showBuyerSurface={false}
+            showSellerSurface={false}
+            isNew
+          />
+          <SecurityCard />
+        </>
+      ) : (
+        <>
+          <DashboardFinanceStrip stats={stats} /> 
 
+          <InsightGrid
+            stats={stats}
+            counts={counts}
+            showBuyerSurface={showBuyerSurface}
+            showSellerSurface={showSellerSurface}
+            hideKycCard={shouldShowKycBanner(stats)}
+          />
+
+          {shouldShowKycBanner(stats) ? (<DashboardKycBanner kycStatus={stats.kycStatus} />) : null}
+
+          {/* <DashboardActionQueue
+            actions={visibleActions}
+            totalCount={actions.length}
+            viewAllHref={
+              hasMoreActions
+                ? actions.some((a) => a.role === "buyer")
+                  ? routes.dashboardPurchases
+                  : routes.dashboardSales
+                : undefined
+            }
+            loading={loading && !summary}
+            emptyTitle="Tudo em dia"
+            emptyBody="Nenhuma pendência no momento. Novas ações aparecem aqui."
+          /> */}
+
+          {/* {showBuyerSurface ? (
+            <ActivitySection
+              title="Suas compras"
+              href={routes.dashboardPurchases}
+              linkLabel="Ver compras"
+            >
+              <div className="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-3">
+                <MetricTile
+                  href={routes.dashboardPurchases}
+                  label="Em andamento"
+                  value={String(stats.purchasesOpen)}
+                  hint="Aguardando pagamento, entrega ou confirmação"
+                  icon={ShoppingBagIcon}
+                />
+                <MetricTile
+                  href={routes.dashboardPurchases}
+                  label="Concluídas"
+                  value={String(stats.purchasesCompleted)}
+                  hint="Pedidos finalizados"
+                  icon={PackageIcon}
+                />
+                <MetricTile
+                  href={routes.dashboardMessages}
+                  label="Mensagens"
+                  colSpan={2}
+                  value={String(counts?.messages ?? 0)}
+                  hint={
+                    stats.conversations > 0
+                      ? `${stats.conversations} conversa(s) no total`
+                      : "Chat dos pedidos"
+                  }
+                  icon={MessageSquareIcon}
+                />
+              </div>
+            </ActivitySection>
+          ) : null} */}
+
+          {showSellerSurface ? (
+            <ActivitySection
+              title="Suas vendas"
+              href={routes.dashboardSales}
+              linkLabel="Ver vendas"
+            >
+              <div className="space-y-3">
+                <DashboardSalesPulse />
+                {/* <ListingHealthCard stats={stats} /> */}
+              </div>
+            </ActivitySection>
+          ) : null}
+
+          <SecurityCard />
+
+          {profile === "buyer-only" ? <SellCta /> : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+type InsightCard = {
+  href: string;
+  icon: LucideIcon;
+  title: string;
+  body: string;
+  tone?: "warn" | "ok" | "info";
+  colSpan?: 2;
+};
+
+function InsightGrid({ stats, counts, showBuyerSurface, showSellerSurface, isNew, hideKycCard, }: { stats: DashboardSummaryStats; counts?: DashboardNavCounts; showBuyerSurface: boolean; showSellerSurface: boolean; isNew?: boolean; hideKycCard?: boolean; }) {
+  const kycOk = stats.kycStatus === "APPROVED";
+  const cards: InsightCard[] = [];
+
+  if (!kycOk && !hideKycCard) {
+    cards.push({
+      href: routes.dashboardVerification,
+      icon: TriangleAlertIcon,
+      colSpan: 2,
+      title: stats.kycStatus === "PENDING" ? "Verificação em análise" : stats.kycStatus === "REJECTED" ? "Verificação recusada" : "Conta não verificada",
+      body: "Complete seus dados para sacar o saldo. Anunciar não exige verificação.",
+      tone: "warn",
+    });
+  }
+
+  if (showSellerSurface) {
+    cards.push({
+      href: routes.dashboardSales,
+      icon: PackageIcon,
+      title: "Prazos de entrega",
+      body: stats.salesPending > 0 ? `${stats.salesPending} pedido(s) aguardando entrega.` : "Nenhuma entrega pendente no momento.",
+      tone: stats.salesPending > 0 ? "warn" : "ok",
+    });
+  } else if (showBuyerSurface) {
+    cards.push({
+      href: routes.dashboardPurchases,
+      icon: ShoppingBagIcon,
+      title: "Compras em aberto",
+      body: stats.purchasesOpen > 0 ? `${stats.purchasesOpen} compra(s) pedem sua atenção.` : "Nenhuma compra em andamento.",
+      tone: stats.purchasesOpen > 0 ? "info" : "ok",
+    });
+  } else if (isNew) {
+    cards.push({
+      href: routes.howItWorks,
+      icon: ShieldCheckIcon,
+      title: "Compra protegida",
+      body: "O valor fica retido até você confirmar a entrega.",
+      tone: "ok",
+    });
+  }
+
+  cards.push({
+    href: routes.dashboardNotifications,
+    icon: BellIcon,
+    title: "Alertas importantes",
+    body: (counts?.notifications ?? 0) > 0 ? `${counts!.notifications} notificação(ões) não lida(s).` : "Pagamentos, entregas e suporte ficam centralizados aqui.",
+    tone: (counts?.notifications ?? 0) > 0 ? "info" : "ok",
+  });
+
+  const visibleCards = cards.slice(0, 3);
+  const hasColSpan = visibleCards.some((card) => card.colSpan === 2);
+
+  return (
+    <div
+      className={cn(
+        "grid gap-2",
+        hasColSpan ? "grid-cols-2" : "",
+        visibleCards.length >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2",
+      )}
+    >
+      {visibleCards.map((card) => (
         <Link
-          href={routes.dashboardWithdrawals}
-          className="rounded-md border border-border/60 bg-card/40 p-4 transition-colors hover:border-primary/40"
+          key={card.title}
+          href={card.href}
+          className={cn(
+            "rounded-md border p-3.5 transition-colors hover:border-primary/35",
+            card.tone === "warn"
+              ? "border-amber-500/30 bg-amber-500/5"
+              : "border-border/60 bg-card/40",
+            card.colSpan === 2 && "col-span-1 sm:col-span-1",
+          )}
         >
-          <p className="text-sm font-medium">
-            Saque pendente
-          </p>
-          <p className="mt-1 text-2xl font-bold tabular-nums sm:text-3xl">
-            R$ 0,00
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Em breve — retiros via PIX
-          </p>
+          <div className="flex items-center gap-2.5">
+            <span
+              className={cn(
+                "flex size-8 shrink-0 items-center justify-center rounded-md",
+                card.tone === "warn"
+                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                  : "bg-primary/10 text-primary",
+              )}
+            >
+              <card.icon className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">{card.title}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground text-pretty">
+                {card.body}
+              </p>
+            </div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function ActivitySection({ title, href, linkLabel, children, }: { title: string; href: string; linkLabel: string; children: ReactNode; }) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
+        <Link
+          href={href}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          {linkLabel}
         </Link>
       </div>
+      {children}
+    </section>
+  );
+};
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          href={routes.dashboardListings}
-          label="Anúncios ativos"
-          value={String(stats.activeListings)}
-          hint={`${stats.listings} no total`}
-          icon={StoreIcon}
-        />
-        <StatCard
-          href={routes.dashboardSales}
-          label="Entregas pendentes"
-          value={String(stats.salesPending)}
-          hint={`${stats.salesCompleted} vendas concluídas`}
-          icon={PackageIcon}
-        />
-        <StatCard
-          href={routes.dashboardPurchases}
-          label="Compras abertas"
-          value={String(stats.purchasesOpen)}
-          hint="Pedidos em andamento"
-          icon={ShoppingBagIcon}
-        />
-        <StatCard
-          href={routes.dashboardMessages}
-          label="Conversas"
-          value={String(stats.conversations)}
-          hint="Mensagens dos pedidos"
-          icon={MessageSquareIcon}
-        />
+function MetricTile({ href, label, value, hint, icon: Icon, colSpan, }: { href: string; label: string; value: string; hint: string; icon: LucideIcon; colSpan?: 2; }) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "rounded-md border border-border/60 bg-card/40 p-3.5 transition-colors hover:border-primary/35",
+        colSpan === 2 && "col-span-2",
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-muted-foreground">
+          {label}
+        </p>
+        <Icon className="size-3.5 text-muted-foreground" />
       </div>
+      <p className="mt-1.5 text-2xl font-semibold tracking-tight tabular-nums">
+        {value}
+      </p>
+      <p className="mt-1 text-[11px] text-muted-foreground text-pretty">{hint}</p>
+    </Link>
+  );
+};
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <InfoCard
-          href={routes.dashboardVerification}
-          icon={
-            verified ? (
-              <BadgeCheckIcon className="size-5 text-emerald-400" />
-            ) : (
-              <AlertTriangleIcon className="size-5 text-amber-400" />
-            )
-          }
-          title={verified ? "Conta verificada" : "Conta não verificada"}
-          body={
-            verified
-              ? "Documentos aprovados — mais confiança nas vendas."
-              : "Complete a verificação para vender com mais confiança."
-          }
-        />
-        <InfoCard
-          href={routes.dashboardSales}
-          icon={<ClockIcon className="size-5 text-sky-400" />}
-          title="Prazos de entrega"
-          body="Entregue pedidos pagos a tempo para manter boa reputação."
-        />
-        <InfoCard
-          href={routes.dashboardNotifications}
-          icon={<BellIcon className="size-5 text-primary" />}
-          title="Alertas importantes"
-          body="Avisos de pedidos, escrow e mensagens aparecerão aqui."
-        />
-      </div>
+function SellCta() {
+  return (
+    <div className="rounded-md border border-dashed border-border/60 bg-card/20 p-4 text-center">
+      <p className="text-sm font-medium">Quer vender no Elloot?</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Crie seu primeiro anúncio e receba com proteção escrow.
+      </p>
+      <Link
+        href={routes.sell}
+        className={cn(buttonVariants({ size: "sm" }), "mt-3")}
+      >
+        Criar primeiro anúncio
+      </Link>
+    </div>
+  );
+};
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-border/60 bg-card/40 p-5">
-          <div className="flex size-10 items-center justify-center rounded-md bg-primary/15 text-primary">
-            <PlusCircleIcon className="size-5" />
-          </div>
-          <div className="flex flex-col items-center justify-center gap-1">
-            <h3 className="font-semibold tracking-tight">Comece a vender</h3>
-            <p className="text-sm text-muted-foreground max-w-xs text-center">
-              Publique um anúncio com entrega manual ou automática e proteção
-              por escrow.
-            </p>
-          </div>
-          <Link
-            href={routes.sell}
-            className={cn(buttonVariants({ size: "sm" }), "w-fit")}
-          >
-            Anunciar agora
-          </Link>
-        </div>
-
-        <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-border/60 bg-card/40 p-5">
-          <div className="flex size-10 items-center justify-center rounded-md bg-emerald-500/15 text-emerald-400">
-            <ShieldCheckIcon className="size-5" />
-          </div>
-          <div className="flex flex-col items-center justify-center gap-1 max-w-xs text-center">
-            <h3 className="font-semibold tracking-tight">Segurança garantida</h3>
-            <p className="text-sm text-muted-foreground">
-              O pagamento fica bloqueado até a entrega ser confirmada — comprador
-              e vendedor protegidos.
-            </p>
-          </div>
+function SecurityCard() {
+  return (
+    <div className="rounded-md border border-border/60 bg-card/40 px-4 py-3.5">
+      <div className="flex items-center gap-3">
+        <ShieldCheckIcon className="size-6 shrink-0 text-emerald-500" />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">Pagamento protegido pela Elloot</p>
+          <p className="mt-0.5 text-xs text-muted-foreground text-pretty">
+            O valor fica retido até a entrega ser confirmada — comprador e
+            vendedor protegidos.
+          </p>
           <Link
             href={routes.howItWorks}
             className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "w-fit",
+              buttonVariants({ variant: "link", size: "sm" }),
+              "mt-1 h-auto px-0",
             )}
           >
             Entender proteção
@@ -236,44 +354,5 @@ export function DashboardOverviewClient() {
         </div>
       </div>
     </div>
-  );
-};
-
-function StatCard({ href, label, value, hint, icon: Icon, }: { href: string; label: string; value: string; hint: string; icon: typeof StoreIcon; }) {
-  return (
-    <Link
-      href={href}
-      className="rounded-md border border-border/60 bg-card/40 p-4 transition-colors hover:border-primary/40 hover:bg-card/70"
-    >
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium">
-          {label}
-        </p>
-        <Icon className="size-4 text-muted-foreground" />
-      </div>
-      <p className="mt-2 text-2xl font-bold tracking-tight tabular-nums">
-        {value}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
-    </Link>
-  );
-};
-
-function InfoCard({ href, icon, title, body, }: { href: string; icon: ReactNode; title: string; body: string; }) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-3 rounded-md border border-border/60 bg-card/40 p-4 transition-colors hover:border-primary/40"
-    >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted/50">
-        {icon}
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold">{title}</span>
-        <span className="block text-xs leading-relaxed text-muted-foreground">
-          {body}
-        </span>
-      </span>
-    </Link>
   );
 };

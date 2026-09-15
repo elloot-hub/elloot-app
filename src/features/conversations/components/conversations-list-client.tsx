@@ -3,15 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/features/auth/context";
-import {
-  fetchConversations,
-  type ConversationSummary,
-} from "@/features/conversations";
+import { fetchConversations, type ConversationSummary, } from "@/features/conversations";
 import { previewMessageBody } from "@/features/conversations/message-reply";
 import { ConversationsListSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
 import { ApiError } from "@/lib/api/errors";
 import { formatBRLFromCents } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import { formatOrderCode, orderRouteRef } from "@/lib/order-code";
 
 export function ConversationsListClient() {
   const { user } = useAuth();
@@ -73,17 +71,20 @@ export function ConversationsListClient() {
         const preview = previewMessageBody(
           c.lastMessagePreview ?? last?.body ?? "",
         );
-        const stamp = c.lastMessageAt ?? c.updatedAt;
+        const stamp = c.lastMessageAt ?? c.createdAt;
         const other =
           user?.id === c.order.buyerId ? c.order.seller : c.order.buyer;
         return (
           <li key={c.id}>
             <Link
-              href={routes.conversation(c.id)}
+              href={routes.conversation(orderRouteRef(c.order))}
               className="flex items-start justify-between gap-3 bg-card/30 px-3 py-3 transition-colors hover:bg-muted/30 sm:px-4"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">
+                <p className="truncate text-sm font-semibold tabular-nums">
+                  Pedido #{formatOrderCode(c.order)}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-foreground/85">
                   {c.order.listing.title}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">

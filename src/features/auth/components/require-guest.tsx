@@ -16,7 +16,14 @@ function safeNext(value: string | null, fallback: string): string {
   if (/[\\]/.test(value) || /%5c/i.test(value)) return fallback;
   if (!value.startsWith("/")) return fallback;
   if (value.startsWith("//") || value.includes("://")) return fallback;
-  if (value.startsWith("/login") || value.startsWith("/register")) return fallback;
+  if (
+    value.startsWith("/login") ||
+    value.startsWith("/register") ||
+    value.startsWith("/forgot-password") ||
+    value.startsWith("/reset-password")
+  ) {
+    return fallback;
+  }
   return value;
 }
 

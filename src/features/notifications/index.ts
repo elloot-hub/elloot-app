@@ -10,6 +10,11 @@ export {
 } from "./context";
 export { NotificationsListClient } from "./components/notifications-list-client";
 export {
+  NotificationPreferencesDialog,
+  NotificationPreferencesDialogButton,
+} from "./components/notification-preferences-dialog";
+export { NotificationPreferencesPanel } from "./components/notification-preferences-panel";
+export {
   playNotifySound,
   unlockNotifySound,
   bindNotifySoundUnlock,

@@ -32,12 +32,19 @@ type AuthContextValue = {
   /** True when cookie session is active (JWT is never stored in JS). */
   token: string | null;
   loading: boolean;
-  login: (input: { email: string; password: string }) => Promise<void>;
+  login: (input: {
+    email: string;
+    password: string;
+  }) => Promise<
+    | void
+    | import("@/features/auth/two-factor-api").LoginRequires2fa
+    | import("@/types/api").AuthResponse
+  >;
   register: (input: {
     email: string;
     password: string;
     name?: string;
-  }) => Promise<void>;
+  }) => Promise<import("@/types/api").AuthResponse>;
   logout: () => void;
   /** Establishes client session from cookie (optional user from exchange). */
   setSession: (accessToken?: string | null, user?: User | null) => Promise<void>;
@@ -144,7 +151,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (input: { email: string; password: string }) => {
       const result = await loginRequest(input);
-      await setSession(null, result.user);
+      if ("requires2fa" in result && result.requires2fa) {
+        return result;
+      }
+      await setSession(null, (result as import("@/types/api").AuthResponse).user!);
+      return result;
     },
     [setSession],
   );
@@ -152,7 +163,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(
     async (input: { email: string; password: string; name?: string }) => {
       const result = await registerRequest(input);
+      if (!result.user) {
+        return result;
+      }
       await setSession(null, result.user);
+      return result;
     },
     [setSession],
   );

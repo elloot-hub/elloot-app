@@ -8,6 +8,7 @@ import { trackListingEvent } from "@/features/listings/track-listing-event";
 import { ApiError } from "@/lib/api/errors";
 import { Button } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
+import { orderRouteRef } from "@/lib/order-code";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -60,13 +61,21 @@ export function BuyEscrowButton({
     try {
       void trackListingEvent(listingId, "PURCHASE_INTENT", priceCents);
       const { order } = await createOrder(listingId, offerId);
-      router.push(routes.order(order.id));
+      router.push(routes.order(orderRouteRef(order)));
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Não foi possível criar o pedido.",
-      );
+      if (err instanceof ApiError) {
+        if (err.code === "AUTO_STOCK_UNAVAILABLE") {
+          setError(
+            "Entrega automática sem chaves disponíveis. Peça ao vendedor para recarregar o estoque automático do anúncio.",
+          );
+        } else if (err.code === "OUT_OF_STOCK") {
+          setError("Este anúncio está sem estoque no momento.");
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError("Não foi possível criar o pedido.");
+      }
     } finally {
       setPending(false);
     }

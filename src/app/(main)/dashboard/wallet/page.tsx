@@ -12,8 +12,7 @@ export default function DashboardWalletPage() {
     <RequireAuth>
       <DashboardShell
         title="Extrato / saldo"
-        description="Saldo liberado do escrow e movimentações recentes."
-        breadcrumb={["Conta", "Financeiro", "Extrato"]}
+        description="Saldo liberado, valores em escrow e histórico de movimentações."
       >
         <WalletClient />
       </DashboardShell>

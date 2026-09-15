@@ -144,7 +144,7 @@ export function ListingSellerCard({ seller, className }: Props) {
           </div>
         </div>
 
-        <Link href={routes.sellerProfile(seller.id)}>
+        <Link href={routes.profile(seller.username || seller.id)}>
           <Button variant="outline" size="xs">
             Ver perfil
             <ChevronRightIcon className="size-3.5" />

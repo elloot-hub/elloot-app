@@ -77,7 +77,7 @@ export function UserMenu({ user, onLogout }: Props) {
             className="size-6 rounded-full object-cover"
           />
         ) : (
-          <span className="flex size-6 items-center justify-center rounded-full bg-primary/15 text-primary">
+          <span className="flex p-1.5 items-center justify-center rounded-full bg-primary/10 text-primary">
             <UserIcon className="size-3.5" />
           </span>
         )}

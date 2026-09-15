@@ -13,6 +13,7 @@ import {
   StoreIcon,
 } from "lucide-react";
 import { useNotifications } from "@/features/notifications";
+import { NotificationPreferencesDialogButton } from "@/features/notifications/components/notification-preferences-dialog";
 import { safeInternalHref } from "@/features/notifications/safe-href";
 import type { AppNotification } from "@/features/notifications/api";
 import {
@@ -91,10 +92,14 @@ function categoryIcon(type: string) {
 function metaLabel(meta: unknown): string | null {
   if (!meta || typeof meta !== "object") return null;
   const m = meta as Record<string, unknown>;
+  if (typeof m.orderCode === "string") return `Pedido · ${m.orderCode}`;
   if (typeof m.orderId === "string") return `Pedido · ${m.orderId.slice(0, 8)}`;
+  if (typeof m.listingCode === "string") return `Anúncio · ${m.listingCode}`;
   if (typeof m.listingId === "string")
     return `Anúncio · ${m.listingId.slice(0, 8)}`;
+  if (typeof m.payoutCode === "string") return `Saque · ${m.payoutCode}`;
   if (typeof m.payoutId === "string") return `Saque · ${m.payoutId.slice(0, 8)}`;
+  if (typeof m.disputeCode === "string") return `Disputa · ${m.disputeCode}`;
   if (typeof m.disputeId === "string")
     return `Disputa · ${m.disputeId.slice(0, 8)}`;
   return null;
@@ -173,19 +178,25 @@ export function NotificationsListClient() {
           </Select>
         </div>
 
-        {unreadCount > 0 ? (
-          <button
-            type="button"
-            onClick={() => void markAllRead()}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "gap-1.5",
-            )}
-          >
-            <CheckCheckIcon className="size-3.5" />
-            Marcar todas como lidas
-          </button>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <NotificationPreferencesDialogButton
+            label="Preferências"
+            className="gap-1.5"
+          />
+          {unreadCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => void markAllRead()}
+              className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "gap-1.5",
+              )}
+            >
+              <CheckCheckIcon className="size-3.5" />
+              Marcar todas como lidas
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {items.length === 0 ? (

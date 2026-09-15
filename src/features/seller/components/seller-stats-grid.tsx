@@ -32,13 +32,13 @@ export function SellerStatsGrid({ stats }: Props) {
             Métricas e Desempenho do Vendedor
           </h2>
           <p className="text-xs text-muted-foreground">
-            Estatísticas de vendas, entregas e satisfação dos compradores.
+            Estatísticas reais de vendas, entregas e satisfação.
           </p>
         </div>
 
-        <div className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
-          <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-          Taxa de Satisfação: {positivePercent}%
+        <div className="hidden items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-700 sm:inline-flex dark:text-emerald-400">
+          <span className="size-2 rounded-full bg-emerald-500" />
+          Satisfação positiva: {positivePercent}%
         </div>
       </div>
 

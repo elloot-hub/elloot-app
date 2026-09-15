@@ -13,7 +13,6 @@ export default function DashboardReviewsReceivedPage() {
       <DashboardShell
         title="Avaliações recebidas"
         description="Notas e comentários dos compradores nas suas vendas."
-        breadcrumb={["Conta", "Vendas", "Avaliações"]}
       >
         <ReviewsDashboardClient mode="received" />
       </DashboardShell>

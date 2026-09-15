@@ -158,7 +158,7 @@ function MyListingsClientInner() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-row gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Select
           value={status}
           items={STATUS_ITEMS}
@@ -169,7 +169,7 @@ function MyListingsClientInner() {
             });
           }}
         >
-          <SelectTrigger className="w-full sm:w-44">
+          <SelectTrigger className="w-44 sm:w-44">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>

@@ -6,6 +6,7 @@ import { ChevronRightIcon, PackageIcon } from "lucide-react";
 import { FaTruckFast } from "react-icons/fa6";
 import { getCategoryVisual } from "@/features/catalog/category-visuals";
 import { listingVertical } from "@/features/catalog/listing-category";
+import { marketCategoryHref } from "@/features/catalog/market-path";
 import { ListingBuyPanel } from "@/features/listings/components/listing-buy-panel";
 import { ExpandableDescription } from "@/features/listings/components/expandable-description";
 import { ListingImageSlider } from "@/features/listings/components/listing-image-slider";
@@ -157,7 +158,7 @@ export function ListingDetailView({ listing }: Props) {
           <span key={node.id} className="inline-flex items-center gap-1.5">
             <ChevronRightIcon className="size-3 opacity-60" />
             <Link
-              href={`${routes.market}?category=${encodeURIComponent(node.slug)}`}
+              href={marketCategoryHref(node)}
               className="transition-colors hover:text-foreground"
             >
               {node.name}

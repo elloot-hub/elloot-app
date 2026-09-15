@@ -13,7 +13,6 @@ export default function DashboardPurchasesPage() {
       <DashboardShell
         title="Minhas compras"
         description="Acompanhe seus pedidos e o status de cada compra."
-        breadcrumb={["Conta", "Compras", "Minhas compras"]}
       >
         <PurchasesClient />
       </DashboardShell>

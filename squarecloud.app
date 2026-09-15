@@ -1,0 +1,9 @@
+DISPLAY_NAME=Elloot App
+DESCRIPTION=Marketplace www.elloot.com.br
+MAIN=next.config.ts
+MEMORY=2048
+VERSION=recommended
+RUNTIME=nodejs
+AUTORESTART=true
+SUBDOMAIN=elloot
+START=npm start

@@ -1,19 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  AlertTriangleIcon,
-  ClockIcon,
-  ScaleIcon,
-  ShieldAlertIcon,
-  XIcon,
-} from "lucide-react";
+import { AlertTriangleIcon, ClockIcon, ScaleIcon, ShieldAlertIcon, XIcon, } from "lucide-react";
 import { openDispute } from "@/features/disputes/api";
-import {
-  disputeResolutionLabel,
-  disputeStatusLabel,
-  disputeStatusTone,
-} from "@/features/disputes/labels";
+import { disputeResolutionLabel, disputeStatusLabel, disputeStatusTone, } from "@/features/disputes/labels";
 import type { Order } from "@/features/orders/types";
 import { ApiError } from "@/lib/api/errors";
 import { Button } from "@/components/ui/button";
@@ -32,13 +22,7 @@ type Props = {
   onOpened: () => Promise<void> | void;
 };
 
-export function ReportProblemDialog({
-  open,
-  onClose,
-  order,
-  canOpen,
-  onOpened,
-}: Props) {
+export function ReportProblemDialog({ open, onClose, order, canOpen, onOpened, }: Props) {
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,10 +66,6 @@ export function ReportProblemDialog({
       >
         <header className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-4 sm:px-5">
           <div className="min-w-0 space-y-2">
-            <Badge variant="secondary" className="gap-1">
-              <ScaleIcon className="size-3" />
-              Solicitar moderação
-            </Badge>
             <div>
               <h2
                 id="report-problem-title"
@@ -113,7 +93,7 @@ export function ReportProblemDialog({
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
           {dispute ? (
             <div className="space-y-3 rounded-md border border-orange-500/25 bg-orange-500/10 p-4">
-              <div className="flex items-start gap-2 text-sm">
+              <div className="flex items-center gap-2 text-sm">
                 <ScaleIcon className="mt-0.5 size-4 shrink-0 text-orange-500" />
                 <div className="min-w-0 space-y-1">
                   <p className="font-medium">Disputa já aberta</p>
@@ -147,7 +127,7 @@ export function ReportProblemDialog({
                   <p className="font-medium">Proteção Elloot</p>
                   <p className="mt-0.5 text-xs text-muted-foreground text-pretty">
                     Abra a disputa enquanto o pedido está pago ou entregue. O
-                    escrow fica retido até a mediação.
+                    valor do pedido fica retido até a mediação.
                   </p>
                 </div>
               </div>

@@ -22,6 +22,9 @@ dist/
 # misc
 .DS_Store
 *.pem
+*.p12
+*.key
+*.crt
 Thumbs.db
 
 # debug
@@ -30,10 +33,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env — keep examples
+# env — keep examples only
 .env
 .env.*
 !.env.example
+!.env.production.example
 
 # vercel
 .vercel

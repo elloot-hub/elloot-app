@@ -2,10 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  fetchMyQuestions,
-  type ListingQuestion,
-} from "@/features/questions/api";
+import { fetchMyQuestions, type ListingQuestion, } from "@/features/questions/api";
 import { formatRelativeTime } from "@/features/listings/components/qa-utils";
 import { ApiError } from "@/lib/api/errors";
 import { ConversationsListSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
@@ -46,7 +43,7 @@ export function MyQuestionsClient() {
   }
   if (questions.length === 0) {
     return (
-      <div className="rounded-md border border-border/60 bg-card/40 px-5 py-10 text-center space-y-2">
+      <div className="rounded-md border border-dashed border-border/60 bg-card/40 px-5 py-10 text-center space-y-2">
         <p className="text-sm text-muted-foreground">
           Você ainda não fez perguntas em anúncios.
         </p>

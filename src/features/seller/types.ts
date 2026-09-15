@@ -2,16 +2,22 @@ import type { ListingProductType, ListingSummary, SellerPublic } from "@/types/a
 
 export type SellerClassFilter = "ALL" | ListingProductType;
 
-export type HourlyReviewItem = {
+export type ProfileReviewItem = {
   id: string;
-  buyerName: string;
-  buyerAvatar?: string;
-  rating: number; // 1-5
-  comment: string;
-  timeAgo: string; // e.g. "Há 12 min", "Há 45 min", "Há 1 hora"
+  buyerName: string | null;
+  buyerUsername?: string | null;
+  buyerAvatar?: string | null;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
   productTitle: string;
   productType: ListingProductType;
   orderCode: string;
+};
+
+/** @deprecated Use ProfileReviewItem — kept for transitional imports. */
+export type HourlyReviewItem = ProfileReviewItem & {
+  timeAgo?: string;
 };
 
 export type SellerProfileStats = {
@@ -19,15 +25,21 @@ export type SellerProfileStats = {
   deliveredCount: number;
   undeliveredCount: number;
   deliveryRatePercent: number;
-  avgDeliveryTime: string; // e.g. "7 minutos"
-  reviewsPerHour: number; // e.g. 4.8
-  reviewsLast24h: number; // e.g. 115
-  positivePercent: number; // e.g. 99.4
+  avgDeliveryMinutes?: number | null;
+  avgDeliveryTime: string;
+  reviewsPerHour: number;
+  reviewsLast24h: number;
+  positivePercent: number;
+  positiveCount: number;
+  neutralCount: number;
+  negativeCount: number;
 };
 
 export type SellerProfileData = {
   seller: SellerPublic;
   stats: SellerProfileStats;
   listings: ListingSummary[];
-  hourlyReviews: HourlyReviewItem[];
+  reviews: ProfileReviewItem[];
+  /** @deprecated alias of reviews */
+  hourlyReviews?: ProfileReviewItem[];
 };

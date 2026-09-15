@@ -13,6 +13,7 @@ import { ApiError } from "@/lib/api/errors";
 import { formatBRLFromCents } from "@/lib/format";
 import { buttonVariants } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
+import { orderRouteRef } from "@/lib/order-code";
 import { cn } from "@/lib/utils";
 import { OrderListSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
 
@@ -201,7 +202,7 @@ export function OrdersListClient({ roleFilter }: Props) {
                 </div>
 
                 <Link
-                  href={routes.order(order.id)}
+                  href={routes.order(orderRouteRef(order))}
                   className={cn(
                     buttonVariants({ variant: "secondary", size: "sm" }),
                     "shrink-0",

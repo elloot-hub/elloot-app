@@ -16,6 +16,7 @@ import { createOrder } from "@/features/orders/api";
 import { ApiError } from "@/lib/api/errors";
 import { formatBRLFromCents } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import { orderRouteRef } from "@/lib/order-code";
 import { cn } from "@/lib/utils";
 import type { ListingSummary } from "@/types/api";
 
@@ -126,14 +127,7 @@ function RecentListingsCarousel() {
 export default function CartPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const {
-    items,
-    removeItem,
-    updateQuantity,
-    clearCart,
-    subtotalCents,
-    itemCount,
-  } = useCart();
+  const { items, removeItem, updateQuantity, clearCart, subtotalCents, itemCount, } = useCart();
 
   const [checkoutPending, setCheckoutPending] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -170,7 +164,7 @@ export default function CartPage() {
 
         for (; unitsDone < item.quantity; unitsDone++) {
           const { order } = await createOrder(item.listingId, item.offerId);
-          createdIds.push(order.id);
+          createdIds.push(orderRouteRef(order));
         }
       }
 
@@ -398,7 +392,7 @@ export default function CartPage() {
                   {checkoutPending
                     ? "Criando pedidos…"
                     : user
-                      ? "Finalizar com escrow"
+                      ? "Finalizar compra"
                       : "Entrar para finalizar"}
                 </Button>
 
@@ -408,8 +402,7 @@ export default function CartPage() {
                   </p>
                 ) : (
                   <p className="text-center text-xs text-muted-foreground">
-                    Cada unidade gera um pedido com pagamento em escrow. O valor
-                    final é confirmado no checkout.
+                    Pagamento 100% seguro para cada unidade selecionada. O valor final da sua compra será confirmado na tela de checkout.
                   </p>
                 )}
               </div>

@@ -13,7 +13,6 @@ export default function DashboardQuestionsMinePage() {
       <DashboardShell
         title="Minhas perguntas"
         description="Perguntas que você fez em anúncios e as respostas dos vendedores."
-        breadcrumb={["Conta", "Compras", "Minhas perguntas"]}
       >
         <MyQuestionsClient />
       </DashboardShell>

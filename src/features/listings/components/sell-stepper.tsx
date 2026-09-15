@@ -34,7 +34,7 @@ export function SellStepper({ current, onSelect, maxReachedIndex = 0, }: Props) 
                 disabled={!reachable || !onSelect}
                 onClick={() => onSelect?.(step.id)}
                 className={cn(
-                  "group flex w-full flex-col gap-2 text-left outline-none",
+                  "group cursor-pointer flex w-full flex-col gap-2 text-left outline-none",
                   !reachable && "cursor-default opacity-50",
                 )}
               >

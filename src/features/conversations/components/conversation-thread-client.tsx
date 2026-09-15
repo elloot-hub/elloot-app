@@ -1,30 +1,42 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, } from "react";
-import { ArrowDownIcon, ArrowLeftIcon, CheckIcon, CopyIcon, ReplyIcon, SendIcon, ShieldAlertIcon, XIcon, } from "lucide-react";
+import { ArrowDownIcon, ArrowLeftIcon, CheckCheckIcon, CopyIcon, EllipsisVerticalIcon, PackageIcon, SendIcon, ShieldAlertIcon, } from "lucide-react";
 import { useAuth } from "@/features/auth/context";
-import { fetchConversation, fetchConversationMessages, sendConversationMessage, type ConversationMessage, type ConversationSummary, } from "@/features/conversations";
-import { decodeMessageBody, encodeReplyBody, previewMessageBody, type ReplyMeta, } from "@/features/conversations/message-reply";
+import { fetchConversation, fetchConversationMessages, markConversationRead, sendConversationMessage, type ConversationMessage, type ConversationSummary, } from "@/features/conversations";
+import { decodeMessageBody } from "@/features/conversations/message-reply";
+import { buildChatTimeline } from "@/features/conversations/chat-timeline";
+import { ChatAutoDeliveryMessage, ChatDateSeparator, ChatDisputeOpenedMessage, ChatDisputeResolvedMessage, ChatSecurityMessage, } from "@/features/conversations/components/chat-timeline-parts";
 import { fetchOrder } from "@/features/orders/api";
-import { orderStatusLabel } from "@/features/orders/labels";
+import { PurchaseProtection } from "@/features/orders/components/purchase-protection";
+import { orderStatusLabel, orderStatusShortLabel, orderStatusBadgeClass } from "@/features/orders/labels";
 import type { Order } from "@/features/orders/types";
 import { ReportProblemDialog } from "@/features/disputes/components/report-problem-dialog";
 import { usePresence, useRealtime } from "@/features/realtime";
-import type { RealtimeMessageEvent } from "@/features/realtime/events";
+import type { RealtimeConversationReadEvent, RealtimeMessageEvent } from "@/features/realtime/events";
 import { ConversationThreadSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
+import { useDashboardSummaryOptional } from "@/features/dashboard/context/dashboard-summary-context";
 import { playNotifySound } from "@/features/notifications/notify-sound";
 import { userInitial } from "@/features/listings/components/qa-utils";
 import { ApiError } from "@/lib/api/errors";
-import { formatBRLFromCents } from "@/lib/format";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { routes } from "@/lib/routes";
-import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { routes } from "@/lib/routes";
+import { formatOrderCode, orderRouteRef } from "@/lib/order-code";
+import { cn } from "@/lib/utils";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, } from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
+import { FaArrowUp } from "react-icons/fa6";
 
-const CLOSED = new Set(["COMPLETED", "REFUNDED", "CANCELLED", "EXPIRED"]);
+const CLOSED = new Set(["REFUNDED", "CANCELLED", "EXPIRED"]);
 const DISPUTE_OPEN = new Set(["PAID", "DELIVERED"]);
+
+function wasReadBy(lastReadAt: string | null | undefined, createdAt: string) {
+  if (!lastReadAt) return false;
+  return new Date(createdAt).getTime() <= new Date(lastReadAt).getTime();
+}
 
 function newClientId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -36,8 +48,6 @@ function newClientId() {
 function formatMsgTime(iso: string) {
   try {
     return new Intl.DateTimeFormat("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date(iso));
@@ -94,8 +104,8 @@ function PartyAvatar({ name, url, size = "md", online, }: { name: string | null;
       {typeof online === "boolean" ? (
         <span
           className={cn(
-            "absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-card animate-pulse",
-            online ? "bg-emerald-400" : "bg-muted-foreground/50",
+            "absolute right-0 bottom-0 size-2.5 rounded-full ring-2 ring-black",
+            online ? "bg-emerald-400 animate-pulse" : "bg-muted-foreground/50",
           )}
         />
       ) : null}
@@ -105,16 +115,20 @@ function PartyAvatar({ name, url, size = "md", online, }: { name: string | null;
 
 type Props = {
   conversationId: string;
+  embedded?: boolean;
 };
 
-export function ConversationThreadClient({ conversationId }: Props) {
+export function ConversationThreadClient({ conversationId, embedded = false, }: Props) {
+  const router = useRouter();
   const { user } = useAuth();
   const { socket, connected } = useRealtime();
+  const dashboard = useDashboardSummaryOptional();
+  const dashboardRefreshRef = useRef(dashboard?.refresh);
+  dashboardRefreshRef.current = dashboard?.refresh;
   const [conversation, setConversation] = useState<ConversationSummary | null>(null,);
   const [order, setOrder] = useState<Order | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [draft, setDraft] = useState("");
-  const [replyTo, setReplyTo] = useState<ReplyMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,6 +141,7 @@ export function ConversationThreadClient({ conversationId }: Props) {
 
   const otherId = conversation && user ? user.id === conversation.order.buyerId ? conversation.order.sellerId : conversation.order.buyerId : null;
   const otherPresence = usePresence(otherId);
+  const roomId = conversation?.id ?? null;
 
   const scrollToBottom = useCallback((smooth = false) => {
     const el = listRef.current;
@@ -144,7 +159,7 @@ export function ConversationThreadClient({ conversationId }: Props) {
     setMessages(msgRes.messages);
     try {
       const { order: nextOrder } = await fetchOrder(
-        convRes.conversation.orderId,
+        orderRouteRef(convRes.conversation.order),
       );
       setOrder(nextOrder);
     } catch {
@@ -185,47 +200,88 @@ export function ConversationThreadClient({ conversationId }: Props) {
   }, [messages, loading, scrollToBottom]);
 
   useEffect(() => {
-    if (!socket || !connected) return;
+    function onGlobalKeyDown(e: KeyboardEvent) {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key.length !== 1) return;
 
-    socket.emit("conversation:join", { conversationId }, (ack) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.closest(
+          "input, textarea, select, [contenteditable='true'], [role='textbox']",
+        )
+      ) {
+        return;
+      }
+
+      const ta = inputRef.current;
+      if (!ta || ta.disabled) return;
+
+      e.preventDefault();
+      const start = ta.selectionStart ?? ta.value.length;
+      const end = ta.selectionEnd ?? ta.value.length;
+      const next = ta.value.slice(0, start) + e.key + ta.value.slice(end);
+      setDraft(next);
+      ta.focus();
+      window.requestAnimationFrame(() => {
+        const pos = start + e.key.length;
+        ta.setSelectionRange(pos, pos);
+        ta.style.height = "0px";
+        ta.style.height = `${Math.min(Math.max(ta.scrollHeight, 44), 160)}px`;
+      });
+    }
+
+    window.addEventListener("keydown", onGlobalKeyDown);
+    return () => window.removeEventListener("keydown", onGlobalKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (!socket || !connected || !roomId) return;
+
+    socket.emit("conversation:join", { conversationId: roomId }, (ack) => {
       if (ack && !ack.ok) {
         setError((prev) => prev ?? "Não foi possível entrar no chat ao vivo.");
       }
     });
 
     function onMessage(payload: RealtimeMessageEvent) {
-      if (payload.conversationId !== conversationId) return;
+      if (payload.conversationId !== roomId) return;
       if (stickToBottom.current) {
         setShowJump(false);
       }
       setMessages((prev) => mergeMessages(prev, [payload.message]));
       if (user?.id && payload.message.senderId !== user.id) {
         playNotifySound();
+        void markConversationRead(conversationId)
+          .then(() => {
+            void dashboardRefreshRef.current?.();
+          })
+          .catch(() => undefined);
       }
     }
 
+    function onConversationRead(payload: RealtimeConversationReadEvent) {
+      if (payload.conversationId !== roomId) return;
+      setConversation((prev) =>
+        prev
+          ? {
+            ...prev,
+            buyerLastReadAt: payload.buyerLastReadAt,
+            sellerLastReadAt: payload.sellerLastReadAt,
+            adminLastReadAt: payload.adminLastReadAt,
+          }
+          : prev,
+      );
+    }
+
     socket.on("message:new", onMessage);
+    socket.on("conversation:read", onConversationRead);
 
     return () => {
-      socket.emit("conversation:leave", { conversationId });
+      socket.emit("conversation:leave", { conversationId: roomId });
       socket.off("message:new", onMessage);
+      socket.off("conversation:read", onConversationRead);
     };
-  }, [socket, connected, conversationId, user?.id]);
-
-  const byId = useMemo(() => {
-    const map = new Map(messages.map((m) => [m.id, m]));
-    return map;
-  }, [messages]);
-
-  function startReply(msg: ConversationMessage) {
-    const decoded = decodeMessageBody(msg.body);
-    setReplyTo({
-      id: msg.id,
-      name: msg.sender?.name?.trim() || "Usuário",
-      snippet: decoded.body,
-    });
-    inputRef.current?.focus();
-  };
+  }, [socket, connected, roomId, conversationId, user?.id]);
 
   async function copyMessage(msg: ConversationMessage) {
     const text = decodeMessageBody(msg.body).body;
@@ -243,11 +299,11 @@ export function ConversationThreadClient({ conversationId }: Props) {
     const text = draft.trim();
     if (!text || sending || !user) return;
 
-    const payload = replyTo ? encodeReplyBody(replyTo, text) : text;
+    const payload = text;
     const clientId = newClientId();
     const optimistic: ConversationMessage = {
       id: `optimistic:${clientId}`,
-      conversationId,
+      conversationId: roomId ?? conversationId,
       senderId: user.id,
       body: payload,
       clientId,
@@ -256,7 +312,9 @@ export function ConversationThreadClient({ conversationId }: Props) {
     };
 
     setDraft("");
-    setReplyTo(null);
+    if (inputRef.current) {
+      inputRef.current.style.height = "44px";
+    }
     setSending(true);
     setError(null);
     stickToBottom.current = true;
@@ -268,7 +326,11 @@ export function ConversationThreadClient({ conversationId }: Props) {
         await new Promise<void>((resolve, reject) => {
           socket.emit(
             "message:send",
-            { conversationId, body: payload, clientId },
+            {
+              conversationId: roomId ?? conversationId,
+              body: payload,
+              clientId,
+            },
             (ack) => {
               if (!ack?.ok || !ack.message) {
                 reject(new Error(ack?.error ?? "SEND_FAILED"));
@@ -290,7 +352,6 @@ export function ConversationThreadClient({ conversationId }: Props) {
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setDraft(text);
-      setReplyTo(replyTo);
       setError(
         err instanceof ApiError
           ? err.message
@@ -302,6 +363,24 @@ export function ConversationThreadClient({ conversationId }: Props) {
       setSending(false);
     }
   };
+
+  const timeline = useMemo(
+    () =>
+      buildChatTimeline({
+        messages,
+        order,
+        conversationCreatedAt: conversation?.createdAt ?? "",
+        listingTitle: conversation?.order.listing.title ?? "",
+      }),
+    [
+      messages,
+      order,
+      conversation?.createdAt,
+      conversation?.order.listing.title,
+    ],
+  );
+
+  const hasUserMessages = messages.length > 0;
 
   if (loading) {
     return <ConversationThreadSkeleton />;
@@ -328,15 +407,21 @@ export function ConversationThreadClient({ conversationId }: Props) {
   const otherRole = isBuyer ? "Vendedor" : "Comprador";
   const closed = CLOSED.has(conversation.order.status);
   const canOpenDispute = Boolean(user) && DISPUTE_OPEN.has(order?.status ?? conversation.order.status);
+  const orderStatus = order?.status ?? conversation.order.status;
+  const canConfirmReceipt = Boolean(isBuyer) && orderStatus === "DELIVERED" && !order?.dispute;
   const listingCover = conversation.order.listing.media?.[0]?.url;
+  const orderRef = conversation ? formatOrderCode(conversation.order) : conversationId;
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-border/60 bg-card/30">
+    <div className="flex h-full w-full min-h-0 flex-1 flex-col overflow-hidden bg-card/30">
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border/60 px-3 py-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-3">
           <Link
             href={routes.dashboardMessages}
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            className={cn(
+              "inline-flex size-8 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground",
+              embedded && "lg:hidden",
+            )}
             aria-label="Voltar às mensagens"
           >
             <ArrowLeftIcon className="size-4" />
@@ -348,40 +433,69 @@ export function ConversationThreadClient({ conversationId }: Props) {
           />
           <div className="min-w-0 space-y-1">
             <div className="flex min-w-0 flex-row items-center gap-2">
-              <h2 className="truncate text-sm font-semibold tracking-tight sm:text-base">
-                {other.name?.trim() || otherRole}
+              <h2 className="truncate text-sm font-semibold tracking-tight tabular-nums sm:text-base">
+                Pedido #{orderRef}
               </h2>
-              <Badge variant="default">
-                {otherRole}
-              </Badge>
+              <span
+                className={cn(
+                  "inline-flex h-5 shrink-0 items-center rounded-md border px-1.5 text-[10px] font-medium",
+                  orderStatusBadgeClass(conversation.order.status),
+                )}
+              >
+                {orderStatusShortLabel(conversation.order.status)}
+              </span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {formatBRLFromCents(conversation.order.amountCents)} ·{" "}
-              {orderStatusLabel(conversation.order.status)}
-              {!connected ? (
-                <span className="text-amber-400"> · reconectando…</span>
-              ) : null}
+            <p className="truncate text-xs text-muted-foreground">
+              {conversation.order.listing.title}
             </p>
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          {canOpenDispute || order?.dispute ? (
-            <div className="flex flex-col items-center gap-0.5">
-              <Button
-                type="button"
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className={cn(
+              buttonVariants({ variant: "outline", size: "icon-sm" }),
+              "text-muted-foreground",
+            )}
+            aria-label="Opções da conversa"
+          >
+            <EllipsisVerticalIcon className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-48">
+            <DropdownMenuItem
+              onClick={() =>
+                router.push(routes.order(orderRouteRef(conversation.order)))
+              }
+            >
+              <PackageIcon />
+              Ver pedido
+            </DropdownMenuItem>
+            {canConfirmReceipt ? (
+              <DropdownMenuItem
+                onClick={() =>
+                  router.push(routes.order(orderRouteRef(conversation.order)))
+                }
+              >
+                <CheckCheckIcon />
+                Confirmar recebimento
+              </DropdownMenuItem>
+            ) : null}
+            {canOpenDispute || order?.dispute ? (
+              <DropdownMenuItem
                 variant="destructive"
-                size="sm"
-                className="h-8 border-destructive/40 text-destructive hover:bg-destructive/10"
                 onClick={() => setReportOpen(true)}
               >
-                <ShieldAlertIcon className="size-3.5" />
+                <ShieldAlertIcon />
                 Relatar problema
-              </Button>
-            </div>
-          ) : null}
-        </div>
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
+
+      {order?.escrowHold ? (
+        <PurchaseProtection hold={order.escrowHold} variant="compact" />
+      ) : null}
 
       <div className="relative min-h-0 flex-1">
         <div
@@ -395,155 +509,168 @@ export function ConversationThreadClient({ conversationId }: Props) {
             setShowJump(!atBottom);
           }}
         >
-          <div className="flex items-start gap-3 rounded-md border border-primary/20 bg-primary/10 px-3 py-2.5">
-            {listingCover ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={listingCover}
-                alt=""
-                className="size-10 shrink-0 rounded-md object-cover select-none pointer-events-none"
-              />
-            ) : (
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] text-muted-foreground">
-                Elloot
-              </div>
-            )}
-            <p className="text-xs text-pretty text-muted-foreground">
-              <span className="font-medium text-foreground">Sistema · </span>
-              Chat protegido pela Elloot. Combine a entrega aqui — não compartilhe
-              dados fora da plataforma.
-            </p>
-          </div>
+          {timeline.map((item) => {
+            if (item.kind === "date") {
+              return <ChatDateSeparator key={item.id} at={item.at} />;
+            };
 
-          {conversation.order.status === "DISPUTED" || order?.dispute ? (
-            <div className="rounded-md border border-orange-500/25 bg-orange-500/10 px-3 py-2.5 text-xs text-orange-200">
-              <span className="font-medium">Sistema · </span>
-              Disputa aberta. O escrow permanece retido até a mediação.
-            </div>
-          ) : null}
-
-          {messages.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Nenhuma mensagem ainda. Digite abaixo para iniciar.
-            </p>
-          ) : (
-            messages.map((msg) => {
-              const mine = user?.id === msg.senderId;
-              const optimistic = msg.id.startsWith("optimistic:");
-              const decoded = decodeMessageBody(msg.body);
-              const quoted = decoded.reply
-                ? byId.get(decoded.reply.id)
-                : undefined;
-              const quoteName =
-                decoded.reply?.name ||
-                quoted?.sender?.name?.trim() ||
-                "Mensagem";
-              const quoteSnippet =
-                decoded.reply?.snippet ||
-                (quoted ? previewMessageBody(quoted.body) : "Mensagem original");
-
+            if (item.kind === "security") {
               return (
-                <div
-                  key={msg.id}
-                  id={`msg-${msg.id}`}
-                  className={cn("flex gap-2", mine ? "justify-end" : "justify-start")}
-                >
-                  {!mine ? (
-                    <PartyAvatar
-                      name={msg.sender?.name ?? other.name}
-                      url={msg.sender?.avatarUrl ?? other.avatarUrl}
-                      size="sm"
-                    />
-                  ) : null}
-                  <div
-                    className={cn(
-                      "group/msg max-w-[min(100%,28rem)] min-w-0",
-                      mine && "items-end",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "rounded-md px-3 py-2 text-sm",
-                        mine
-                          ? "bg-primary text-primary-foreground"
-                          : "border border-border/60 bg-muted/40 text-foreground",
-                        optimistic && "opacity-70",
-                      )}
-                    >
-                      {!mine ? (
-                        <p className="mb-0.5 text-[11px] font-medium opacity-70">
-                          {msg.sender?.name?.trim() || otherRole}
-                        </p>
-                      ) : null}
-                      {decoded.reply ? (
-                        <button
-                          type="button"
-                          className={cn(
-                            "mb-2 w-full rounded-md border-l-2 px-2 py-1 text-left text-[11px]",
-                            mine
-                              ? "border-primary-foreground/70 bg-black/15"
-                              : "border-primary bg-background/40",
-                          )}
-                          onClick={() => {
-                            document
-                              .getElementById(`msg-${decoded.reply!.id}`)
-                              ?.scrollIntoView({
-                                behavior: "smooth",
-                                block: "nearest",
-                              });
-                          }}
-                        >
-                          <p className="font-medium">{quoteName}</p>
-                          <p className="line-clamp-2 opacity-80">{quoteSnippet}</p>
-                        </button>
-                      ) : null}
-                      <p className="whitespace-pre-wrap break-words">
-                        {decoded.body}
-                      </p>
-                      <p
-                        className={cn(
-                          "mt-1 text-[10px] tabular-nums",
-                          mine ? "opacity-80" : "text-muted-foreground",
-                        )}
-                      >
-                        {formatMsgTime(msg.createdAt)}
-                        {optimistic ? " · enviando" : null}
-                      </p>
-                    </div>
-                    <div
-                      className={cn(
-                        "mt-1 flex gap-1 opacity-0 transition-opacity group-hover/msg:opacity-100 group-focus-within/msg:opacity-100",
-                        mine ? "justify-end" : "justify-start",
-                      )}
-                    >
-                      {!closed ? (
-                        <button
-                          type="button"
-                          className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
-                          onClick={() => startReply(msg)}
-                        >
-                          <ReplyIcon className="size-3" />
-                          Responder
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
-                        onClick={() => void copyMessage(msg)}
-                      >
-                        {copiedId === msg.id ? (
-                          <CheckIcon className="size-3" />
-                        ) : (
-                          <CopyIcon className="size-3" />
-                        )}
-                        {copiedId === msg.id ? "Copiado" : "Copiar"}
-                      </button>
-                    </div>
-                  </div>
+                <div key={item.id} className="px-0 md:px-12">
+                  <ChatSecurityMessage listingCover={listingCover} />
                 </div>
               );
-            })
-          )}
+            };
+
+            if (item.kind === "auto-delivery") {
+              return (
+                <div key={item.id} className="px-0 md:px-12">
+                  <ChatAutoDeliveryMessage
+                    content={item.content}
+                    listingTitle={item.listingTitle}
+                  />
+                </div>
+              );
+            };
+
+            if (item.kind === "dispute-opened") {
+              return (
+                <ChatDisputeOpenedMessage
+                  key={item.id}
+                  openedByName={item.openedByName}
+                  reason={item.reason}
+                />
+              );
+            };
+
+            if (item.kind === "dispute-resolved") {
+              return (
+                <ChatDisputeResolvedMessage
+                  key={item.id}
+                  resolutionLabel={item.resolutionLabel}
+                  notes={item.notes}
+                />
+              );
+            };
+
+            const msg = item.message;
+            const mine = user?.id === msg.senderId;
+            const optimistic = msg.id.startsWith("optimistic:");
+            const decoded = decodeMessageBody(msg.body);
+            const counterpartyRead = mine ? wasReadBy(isBuyer ? conversation.sellerLastReadAt : conversation.buyerLastReadAt, msg.createdAt,) : false;
+            const mediatorRead = mine ? wasReadBy(conversation.adminLastReadAt, msg.createdAt) : false;
+
+            return (
+              <div key={msg.id} id={`msg-${msg.id}`} className={cn("group/msg flex gap-2", mine ? "justify-end" : "justify-start",)}>
+                {!mine ? (
+                  <PartyAvatar
+                    name={msg.sender?.name ?? other.name}
+                    url={msg.sender?.avatarUrl ?? other.avatarUrl}
+                    size="sm"
+                  />
+                ) : null}
+
+                <div className={cn("flex max-w-[min(100%,28rem)] min-w-0 items-start gap-1", mine && "flex-row-reverse",)}>
+                  <div className={cn("min-w-0 rounded-md px-3 py-2 text-sm", mine ? "bg-primary text-primary-foreground" : "border border-border/60 bg-muted/40 text-foreground", optimistic && "opacity-70",)} >
+                    {!mine ? (
+                      <p className="mb-0.5 text-[11px] font-medium opacity-70">
+                        {msg.sender?.name?.trim() || otherRole}
+                      </p>
+                    ) : null}
+
+                    <p className="whitespace-pre-wrap break-words">
+                      {decoded.body}
+                    </p>
+
+                    <div className={cn("mt-1 flex items-center justify-end gap-1.5 text-[10px] tabular-nums", mine ? "opacity-90" : "text-muted-foreground",)} >
+                      <span>
+                        {formatMsgTime(msg.createdAt)}
+                        {optimistic ? " · enviando" : null}
+                      </span>
+
+                      {mine && !optimistic ? (
+                        <span className="inline-flex items-center gap-0.5" aria-label="Visualizações">
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <span
+                                  className={cn(
+                                    "inline-flex",
+                                    counterpartyRead
+                                      ? "text-sky-200"
+                                      : "opacity-50",
+                                  )}
+                                />
+                              }
+                            >
+                              <CheckCheckIcon className="size-3.5" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {counterpartyRead
+                                ? `Visto pelo ${isBuyer ? "vendedor" : "comprador"}`
+                                : `Aguardando ${isBuyer ? "vendedor" : "comprador"}`}
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <span
+                                  className={cn(
+                                    "inline-flex",
+                                    mediatorRead
+                                      ? "text-emerald-200"
+                                      : "opacity-50",
+                                  )}
+                                />
+                              }
+                            >
+                              <CheckCheckIcon className="size-3.5" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {mediatorRead
+                                ? "Visto pelo mediador"
+                                : "Aguardando mediador"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className={cn(
+                        buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                        "size-7 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/msg:opacity-100 group-focus-within/msg:opacity-100 data-[popup-open]:opacity-100",
+                      )}
+                      aria-label="Opções da mensagem"
+                    >
+                      <EllipsisVerticalIcon className="size-3.5" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align={mine ? "end" : "start"}
+                      className="min-w-36"
+                    >
+                      <DropdownMenuItem
+                        onClick={() => void copyMessage(msg)}
+                      >
+                        <CopyIcon />
+                        {copiedId === msg.id ? "Copiado" : "Copiar"}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            );
+          })}
+
+          {!hasUserMessages ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              Nenhuma mensagem ainda. Digite abaixo para falar com{" "}
+              {isBuyer ? "o vendedor" : "o comprador"}.
+            </p>
+          ) : null}
         </div>
 
         {showJump ? (
@@ -574,36 +701,17 @@ export function ConversationThreadClient({ conversationId }: Props) {
           {orderStatusLabel(conversation.order.status).toLowerCase()}).
         </p>
       ) : (
-        <form
-          onSubmit={(e) => void handleSend(e)}
-          className="shrink-0 border-t border-border/60"
-        >
-          {replyTo ? (
-            <div className="flex items-start gap-2 border-b border-primary/20 bg-primary/10 px-3 py-2 sm:px-4">
-              <ReplyIcon className="mt-0.5 size-3.5 shrink-0 text-primary" />
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-medium text-primary">
-                  Respondendo a {replyTo.name || "mensagem"}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {replyTo.snippet}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Cancelar resposta"
-                onClick={() => setReplyTo(null)}
-              >
-                <XIcon className="size-3.5" />
-              </button>
-            </div>
-          ) : null}
-          <div className="flex gap-2 p-3 sm:p-4">
-            <textarea
+        <form onSubmit={(e) => void handleSend(e)} className="shrink-0 space-y-2 border-t border-border/60 bg-background p-3" >
+          <div className={cn("relative flex items-center rounded-md border border-border/60 bg-background focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 px-2")}>
+            <Textarea
               ref={inputRef}
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                const el = e.currentTarget;
+                el.style.height = "0px";
+                el.style.height = `${Math.min(Math.max(el.scrollHeight, 44), 160)}px`;
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -613,17 +721,20 @@ export function ConversationThreadClient({ conversationId }: Props) {
               rows={1}
               maxLength={4000}
               placeholder="Digite uma mensagem"
-              className="min-h-10 max-h-32 flex-1 resize-y rounded-md border border-border/60 bg-background px-3 py-2 text-sm outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/20"
+              className="max-h-40 min-h-11 w-full items-center resize-none scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 border-0 bg-background dark:bg-background/0 py-2.5 pr-12 pl-3 shadow-none focus-visible:ring-0"
               disabled={sending}
             />
+
             <Button
               type="submit"
-              size="icon"
-              className="size-10 shrink-0"
+              size="icon-lg"
+              className={cn(
+                "size-8 cursor-pointer rounded-full",
+              )}
               disabled={sending || !draft.trim()}
               aria-label="Enviar"
             >
-              <SendIcon className="size-4" />
+              <FaArrowUp className="size-4" />
             </Button>
           </div>
         </form>

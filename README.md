@@ -1,8 +1,8 @@
 # Elloot App
 
-Frontend do marketplace [Elloot](https://github.com/faite-push/elloot-app) — Next.js 16, Tailwind v4, shadcn.
+Frontend do marketplace [Elloot](https://github.com/elloot-hub/elloot-app) — Next.js 16, Tailwind v4, shadcn.
 
-API irmã: [`elloot-api`](https://github.com/faite-push/elloot-api).
+API irmã: [`elloot-api`](https://github.com/elloot-hub/elloot-api).
 
 ## Requisitos
 
@@ -12,7 +12,7 @@ API irmã: [`elloot-api`](https://github.com/faite-push/elloot-api).
 ## Setup
 
 ```bash
-git clone https://github.com/faite-push/elloot-app.git
+git clone https://github.com/elloot-hub/elloot-app.git
 cd elloot-app
 npm install
 cp .env.example .env.local
@@ -61,6 +61,15 @@ Definidas em [`src/lib/routes.ts`](./src/lib/routes.ts):
 1. Página em `app/` só monta layout + feature — lógica fica em `features/`.
 2. Paths públicos em inglês; textos da UI em português.
 3. Não commitar `.env.local` — use `.env.example`.
+
+## Deploy (Square Cloud + GitHub Actions)
+
+Build no GitHub; Square só sobe o artefato.  
+Workflow: [`.github/workflows/deploy-squarecloud.yml`](./.github/workflows/deploy-squarecloud.yml)  
+Docs: [Next.js](https://docs.squarecloud.app/pt-br/tutorials/website/nextjs) · [Actions](https://help.squarecloud.app/pt-br/article/workflow-github-actions-deploy-automatico-o6c7e2/)
+
+Secrets no repo: `SQUARE_CLOUD_TOKEN`, `SQUARECLOUD_APP_ID`.  
+Domínio: `https://www.elloot.com.br` → API `https://www.api.elloot.com.br`.
 
 ## Licença
 

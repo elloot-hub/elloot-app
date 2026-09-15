@@ -13,7 +13,6 @@ export default function DashboardNotificationsPage() {
       <DashboardShell
         title="Central de notificações"
         description="Veja e gerencie as notificações da sua conta."
-        breadcrumb={["Conta", "Central de notificações"]}
       >
         <NotificationsListClient />
       </DashboardShell>

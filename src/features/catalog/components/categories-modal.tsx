@@ -5,7 +5,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SearchIcon, XIcon } from "lucide-react";
 import { fetchBrowseCategories } from "@/features/catalog/api";
-import { routes } from "@/lib/routes";
+import { marketCategoryHref } from "@/features/catalog/market-path";
 import type { Category } from "@/types/api";
 import { Button } from "@/components/ui/button";
 
@@ -176,7 +176,7 @@ export function CategoriesModal({ open, onClose }: Props) {
                 {filtered.map((category) => (
                   <li key={category.id}>
                     <Link
-                      href={`${routes.market}?category=${encodeURIComponent(category.slug)}`}
+                      href={marketCategoryHref(category)}
                       onClick={onClose}
                       className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors hover:bg-muted"
                     >

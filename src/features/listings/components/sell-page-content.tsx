@@ -2,7 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent, type ChangeEvent, } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  NumberedStockTextarea,
+  countAutoLines,
+  parseAutoStockLines,
+} from "@/features/listings/components/numbered-stock-textarea";
 import { CheckIcon, ChevronDownIcon, ChevronRightIcon, GripVerticalIcon, ImagePlusIcon, LayersIcon, Loader2Icon, ArrowDownIcon, ArrowUpIcon, PackageIcon, PlusCircle, StarIcon, Trash2Icon, XIcon, } from "lucide-react";
 import { SellFormSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
 
@@ -17,9 +22,19 @@ import { useAuth } from "@/features/auth/context";
 import { fetchListingCategories, fetchProductTypes, type ProductTypeOption, } from "@/features/catalog/api";
 import { createListing, fetchListing, reorderListingOffers, updateListing } from "@/features/listings/api";
 import { SellStepper, type SellStepId, } from "@/features/listings/components/sell-stepper";
+import {
+  SellReviewPanel,
+  hasBlockingReviewIssues,
+  computeReviewChecklist,
+} from "@/features/listings/components/sell-review-panel";
+import {
+  computeEditModerationChanges,
+  type EditBaseline,
+} from "@/features/listings/components/sell-review-utils";
 import { uploadMedia } from "@/features/media/api";
 import { ApiError } from "@/lib/api/errors";
 import { routes } from "@/lib/routes";
+import { listingRouteRef } from "@/lib/public-codes";
 import { cn } from "@/lib/utils";
 import type { Category, ListingDetail, ListingProductType } from "@/types/api";
 
@@ -197,7 +212,7 @@ function applyListingToForm(listing: ListingDetail) {
     price: isDynamic ? "" : formatPriceMaskFromCents(listing.priceCents),
     delivery: deliveryMode,
     stock: isDynamic ? "1" : String(listing.stockQuantity),
-    autoStock: "",
+    autoStock: listing.autoStockLines?.join("\n") ?? "",
     existingStockQty: listing.stockQuantity,
     offers:
       isDynamic && listing.offers?.length
@@ -211,7 +226,7 @@ function applyListingToForm(listing: ListingDetail) {
               ? ("auto" as DeliveryMode)
               : ("manual" as DeliveryMode),
           stock: String(offer.stockQuantity),
-          autoStock: "",
+          autoStock: offer.autoStockLines?.join("\n") ?? "",
           existingStockQty: offer.stockQuantity,
           active: true,
         }))
@@ -279,93 +294,6 @@ function PriceInput({
   );
 }
 
-/** Remove linhas vazias; mantém no máx. um \\n final para digitar a próxima unidade. */
-function sanitizeAutoStock(raw: string): string {
-  const endsWithBreak = /\n$/.test(raw);
-  const filled = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
-  if (filled.length === 0) return "";
-  return endsWithBreak ? `${filled.join("\n")}\n` : filled.join("\n");
-}
-
-function NumberedStockTextarea({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}) {
-  const lineCount = Math.max(value.split("\n").length, 1);
-  const gutterRef = useRef<HTMLDivElement>(null);
-  const areaRef = useRef<HTMLTextAreaElement>(null);
-
-  function syncScroll() {
-    if (gutterRef.current && areaRef.current) {
-      gutterRef.current.scrollTop = areaRef.current.scrollTop;
-    }
-  }
-
-  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key !== "Enter") return;
-    const el = e.currentTarget;
-    const { selectionStart, selectionEnd, value: raw } = el;
-    if (selectionStart !== selectionEnd) return;
-
-    const lineStart = raw.lastIndexOf("\n", selectionStart - 1) + 1;
-    const lineEndIdx = raw.indexOf("\n", selectionStart);
-    const lineEnd = lineEndIdx === -1 ? raw.length : lineEndIdx;
-    const currentLine = raw.slice(lineStart, lineEnd);
-
-    if (!currentLine.trim()) {
-      e.preventDefault();
-    }
-  }
-
-  function handleChange(e: ChangeEvent<HTMLTextAreaElement>) {
-    onChange(sanitizeAutoStock(e.target.value));
-  }
-
-  function handlePaste(e: ClipboardEvent<HTMLTextAreaElement>) {
-    e.preventDefault();
-    const el = e.currentTarget;
-    const pasted = e.clipboardData.getData("text");
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const next = sanitizeAutoStock(
-      el.value.slice(0, start) + pasted + el.value.slice(end),
-    );
-    onChange(next);
-  }
-
-  return (
-    <div className="flex max-h-48 min-h-36 overflow-hidden rounded-md border border-input dark:bg-input/30">
-      <div
-        ref={gutterRef}
-        aria-hidden
-        className="shrink-0 overflow-hidden border-r border-border/60 bg-muted/20 py-2.5 pr-2 pl-3 text-right font-mono text-xs leading-6 text-muted-foreground select-none"
-      >
-        {Array.from({ length: lineCount }, (_, i) => (
-          <div key={i} className="h-6">
-            {i + 1}
-          </div>
-        ))}
-      </div>
-      <textarea
-        ref={areaRef}
-        value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        onPaste={handlePaste}
-        onScroll={syncScroll}
-        placeholder={placeholder}
-        spellCheck={false}
-        className="min-h-36 max-h-48 w-full flex-1 resize-none overflow-y-auto bg-transparent py-2.5 pr-3 pl-2 font-mono text-sm leading-6 outline-none placeholder:text-muted-foreground"
-      />
-    </div>
-  );
-}
-
 function findNode(nodes: Category[], id: string): Category | null {
   for (const node of nodes) {
     if (node.id === id) return node;
@@ -373,13 +301,6 @@ function findNode(nodes: Category[], id: string): Category | null {
     if (nested) return nested;
   }
   return null;
-}
-
-function countAutoLines(value: string) {
-  return value
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean).length;
 }
 
 function newOffer(): OfferDraft {
@@ -410,7 +331,7 @@ export function SellPageContent({
   listingId,
 }: SellPageContentProps = {}) {
   const router = useRouter();
-  const { setSession } = useAuth();
+  const { setSession, user } = useAuth();
   const isEdit = mode === "edit" && Boolean(listingId);
 
   const [step, setStep] = useState<SellStepId>("product");
@@ -507,6 +428,7 @@ export function SellPageContent({
 
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [editBaseline, setEditBaseline] = useState<EditBaseline | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -549,6 +471,22 @@ export function SellPageContent({
         setImages(form.images);
         setCoverId(form.coverId);
         setPendingCategoryId(form.categoryId);
+        setEditBaseline({
+          status: listing.status,
+          categoryId: listing.category.id,
+          title: listing.title,
+          description: listing.description,
+          productType: listing.productType,
+          delivery: listing.deliveryMode === "AUTO" ? "auto" : "manual",
+          mediaUrls: [...listing.media]
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+            .map((m) => m.url),
+          offers: (listing.offers ?? []).map((offer) => ({
+            serverId: offer.id,
+            title: offer.title,
+            delivery: offer.deliveryMode === "AUTO" ? "auto" : "manual",
+          })),
+        });
         setExpandedOffers(
           Object.fromEntries(form.offers.map((offer) => [offer.id, false])),
         );
@@ -688,12 +626,72 @@ export function SellPageContent({
     }
     if (inferredProductType) {
       setProductType(inferredProductType);
-      return;
     }
-    setProductType("");
+    // Não limpar aqui: os selects de categoria já resetam ao mudar;
+    // limpar apagava o valor carregado no modo edição.
   }, [categoryIsLeaf, inferredProductType, selectedCategoryId]);
 
   const priceCents = parsePriceToCents(price);
+
+  const reviewInput = useMemo(
+    () => ({
+      title,
+      description,
+      categoryPath,
+      tree,
+      categoryIsLeaf,
+      productType,
+      inferredProductType,
+      needsProductTypePick,
+      adKind,
+      price,
+      delivery,
+      stock,
+      autoStock,
+      offers,
+      images,
+      coverId,
+      isEdit,
+      editBaseline,
+      seller: {
+        id: user?.id ?? "preview-seller",
+        name: user?.name ?? null,
+        avatarUrl: user?.avatarUrl ?? null,
+      },
+    }),
+    [
+      title,
+      description,
+      categoryPath,
+      tree,
+      categoryIsLeaf,
+      productType,
+      inferredProductType,
+      needsProductTypePick,
+      adKind,
+      price,
+      delivery,
+      stock,
+      autoStock,
+      offers,
+      images,
+      coverId,
+      isEdit,
+      editBaseline,
+      user,
+    ],
+  );
+
+  const reviewBlocking = useMemo(
+    () => hasBlockingReviewIssues(computeReviewChecklist(reviewInput)),
+    [reviewInput],
+  );
+
+  const moderationChanges = useMemo(
+    () => computeEditModerationChanges(reviewInput),
+    [reviewInput],
+  );
+  const needsModerationReview = moderationChanges.length > 0;
 
   function goTo(next: SellStepId) {
     setError(null);
@@ -879,15 +877,16 @@ export function SellPageContent({
           priceCents: number;
           stockQuantity?: number;
           deliveryMode: "MANUAL" | "AUTO";
+          autoStockLines?: string[];
         } = {
           title: o.title.trim(),
           priceCents: parsePriceToCents(o.price)!,
           deliveryMode: o.delivery === "auto" ? "AUTO" : "MANUAL",
         };
         if (o.serverId) payload.id = o.serverId;
-        const autoLines = countAutoLines(o.autoStock);
         if (o.delivery === "auto") {
-          if (autoLines >= 1) payload.stockQuantity = autoLines;
+          payload.autoStockLines = parseAutoStockLines(o.autoStock);
+          payload.stockQuantity = payload.autoStockLines.length;
         } else {
           payload.stockQuantity = offerStockQty(o);
         }
@@ -926,7 +925,11 @@ export function SellPageContent({
             ? {
               priceCents: parsePriceToCents(price)!,
               deliveryMode: delivery === "auto" ? "AUTO" : "MANUAL",
-              ...(stockQty !== undefined ? { stockQuantity: stockQty } : {}),
+              ...(delivery === "auto"
+                ? { autoStockLines: parseAutoStockLines(autoStock) }
+                : stockQty !== undefined
+                  ? { stockQuantity: stockQty }
+                  : {}),
             }
             : { offers: buildOffersPayload() }),
           ...(isEdit || mediaUrls.length ? { mediaUrls } : {}),
@@ -951,9 +954,12 @@ export function SellPageContent({
         stockQuantity:
           adKind === "simple"
             ? delivery === "auto"
-              ? countAutoLines(autoStock)
+              ? parseAutoStockLines(autoStock).length
               : Number(stock) || 1
             : 1,
+        ...(adKind === "simple" && delivery === "auto"
+          ? { autoStockLines: parseAutoStockLines(autoStock) }
+          : {}),
         priceCents:
           adKind === "simple" ? parsePriceToCents(price)! : undefined,
         offers:
@@ -969,7 +975,7 @@ export function SellPageContent({
         return;
       }
 
-      router.push(routes.listing(result.listing.id));
+      router.push(routes.listing(listingRouteRef(result.listing)));
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -1097,7 +1103,7 @@ export function SellPageContent({
                   <Field>
                     <FieldLabel>O que você está vendendo?</FieldLabel>
                     <SearchableSelect
-                      value={productType || undefined}
+                      value={(productType || inferredProductType) || undefined}
                       onValueChange={(v) =>
                         setProductType((v as ListingProductType) ?? "")
                       }
@@ -1666,95 +1672,20 @@ export function SellPageContent({
             <PanelTitle>Revisar</PanelTitle>
             <PanelDescription>
               {isEdit
-                ? "Confira os dados antes de salvar as alterações."
-                : "Confira os dados antes de publicar no Elloot."}
+                ? needsModerationReview
+                  ? "Confira o que muda agora e o que vai para análise de um moderador."
+                  : "Confira os dados e veja como o anúncio aparecerá antes de salvar."
+                : "Confira os dados e veja como o anúncio aparecerá na vitrine antes de publicar."}
             </PanelDescription>
 
-            <div className="space-y-4 pt-4">
-              <div className="space-y-3">
-                <SummaryRow label="Título" value={title.trim()} />
-                <SummaryRow
-                  label="Categoria"
-                  value={categoryBreadcrumb || "—"}
-                />
-                {needsProductTypePick ? (
-                  <SummaryRow
-                    label="Tipo"
-                    value={
-                      productTypes.find((t) => t.value === productType)
-                        ?.label ?? "—"
-                    }
-                  />
-                ) : null}
-                <SummaryRow
-                  label="Alcance"
-                  value={
-                    REACH_PLANS.find((p) => p.id === reach)?.title ?? "—"
-                  }
-                />
-                <SummaryRow
-                  label="Modelo"
-                  value={
-                    adKind === "simple"
-                      ? "Anúncio simples"
-                      : "Anúncio composto"
-                  }
-                />
-                {adKind === "simple" ? (
-                  <>
-                    <SummaryRow
-                      label="Preço"
-                      value={
-                        parsePriceToCents(price) != null
-                          ? formatBrl(parsePriceToCents(price)!)
-                          : "—"
-                      }
-                    />
-                    <SummaryRow
-                      label="Entrega"
-                      value={
-                        delivery === "manual" ? "Manual" : "Automática"
-                      }
-                    />
-                    <SummaryRow
-                      label="Estoque"
-                      value={
-                        delivery === "auto"
-                          ? String(countAutoLines(autoStock))
-                          : stock
-                      }
-                    />
-                  </>
-                ) : (
-                  <SummaryRow
-                    label="Ofertas"
-                    value={offers
-                      .filter((o) => o.active)
-                      .map(
-                        (o) =>
-                          `${o.title.trim()} (${formatBrl(parsePriceToCents(o.price) ?? 0)}) · ${o.delivery === "auto" ? "Auto" : "Manual"}`,
-                      )
-                      .join(" · ")}
-                  />
-                )}
-                <SummaryRow
-                  label="Imagens"
-                  value={
-                    images.length === 0
-                      ? "Nenhuma"
-                      : `${images.length} · capa definida`
-                  }
-                />
-              </div>
-
-              <div className="space-y-1.5 border-t border-border/50 pt-4">
-                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                  Descrição
-                </p>
-                <p className="text-sm whitespace-pre-wrap text-pretty">
-                  {description.trim()}
-                </p>
-              </div>
+            <div className="pt-4">
+              <SellReviewPanel
+                {...reviewInput}
+                categoryBreadcrumb={categoryBreadcrumb}
+                productTypes={productTypes}
+                reach={reach}
+                onGoTo={goTo}
+              />
             </div>
           </Panel>
 
@@ -1765,13 +1696,17 @@ export function SellPageContent({
             nextLabel={
               pending
                 ? isEdit
-                  ? "Salvando…"
+                  ? needsModerationReview
+                    ? "Enviando…"
+                    : "Salvando…"
                   : "Publicando…"
                 : isEdit
-                  ? "Salvar alterações"
+                  ? needsModerationReview
+                    ? "Salvar e enviar para análise"
+                    : "Salvar alterações"
                   : "Publicar anúncio"
             }
-            nextDisabled={pending}
+            nextDisabled={pending || reviewBlocking}
             nextPending={pending}
           />
         </section>
@@ -2007,16 +1942,3 @@ function StepFooter({ error, onBack, onBackHref, backLabel = "Voltar", onNext, n
     </div>
   );
 }
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-wrap items-baseline justify-between gap-2">
-      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {label}
-      </span>
-      <span className="max-w-[70%] text-sm font-medium text-right text-pretty">
-        {value}
-      </span>
-    </div>
-  );
-};

@@ -8,6 +8,7 @@ export type DisputeResolution =
 
 export type Dispute = {
   id: string;
+  code: string;
   orderId: string;
   openedById: string;
   reason: string;

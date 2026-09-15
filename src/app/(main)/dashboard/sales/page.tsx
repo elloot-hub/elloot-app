@@ -13,7 +13,6 @@ export default function DashboardSalesPage() {
       <DashboardShell
         title="Minhas vendas"
         description="Pedidos em que você é o vendedor — filtre, entregue e acompanhe o escrow."
-        breadcrumb={["Conta", "Vendas", "Minhas vendas"]}
       >
         <SalesDeliveryClient />
       </DashboardShell>

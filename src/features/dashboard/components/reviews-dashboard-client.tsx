@@ -3,12 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StarIcon, ThumbsDownIcon, ThumbsUpIcon } from "lucide-react";
-import {
-  fetchMyReviews,
-  fetchReceivedReviews,
-  type ListingReview,
-  type ReviewSummary,
-} from "@/features/reviews/api";
+import { fetchMyReviews, fetchReceivedReviews, type ListingReview, type ReviewSummary, } from "@/features/reviews/api";
 import { formatRelativeTime } from "@/features/listings/components/qa-utils";
 import { ApiError } from "@/lib/api/errors";
 import { DashboardListSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
@@ -90,7 +85,7 @@ export function ReviewsDashboardClient({ mode }: { mode: Mode }) {
       ) : null}
 
       {reviews.length === 0 ? (
-        <div className="rounded-md border border-border/60 bg-card/40 px-5 py-10 text-center">
+        <div className="rounded-md border border-dashed border-border/60 bg-card/40 px-5 py-10 text-center">
           <p className="text-sm text-muted-foreground">
             {mode === "received"
               ? "Você ainda não recebeu avaliações."

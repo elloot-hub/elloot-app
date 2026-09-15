@@ -13,7 +13,6 @@ export default function DashboardQuestionsReceivedPage() {
       <DashboardShell
         title="Perguntas recebidas"
         description="Perguntas nos seus anúncios — responda para converter mais vendas."
-        breadcrumb={["Conta", "Vendas", "Perguntas recebidas"]}
       >
         <ReceivedQuestionsClient />
       </DashboardShell>

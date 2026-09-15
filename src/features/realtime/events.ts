@@ -22,9 +22,19 @@ export type RealtimeNotification = {
   meta?: unknown;
 };
 
+export type RealtimeConversationReadEvent = {
+  conversationId: string;
+  readerId: string;
+  role: "BUYER" | "SELLER" | "ADMIN";
+  buyerLastReadAt: string | null;
+  sellerLastReadAt: string | null;
+  adminLastReadAt: string | null;
+};
+
 export type ServerToClientEvents = {
   "presence:update": (payload: PresenceUpdate) => void;
   "message:new": (payload: RealtimeMessageEvent) => void;
+  "conversation:read": (payload: RealtimeConversationReadEvent) => void;
   "notification:new": (payload: RealtimeNotification) => void;
 };
 

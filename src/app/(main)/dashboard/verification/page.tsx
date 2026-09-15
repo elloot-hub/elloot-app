@@ -12,8 +12,7 @@ export default function DashboardVerificationPage() {
     <RequireAuth>
       <DashboardShell
         title="Verificação"
-        description="Status de identidade e confiança da conta."
-        breadcrumb={["Conta", "Verificação"]}
+        description="Documentos para saque e progresso de confiança da conta."
       >
         <VerificationClient />
       </DashboardShell>

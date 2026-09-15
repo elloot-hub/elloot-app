@@ -5,7 +5,8 @@ type Props = {
   params: Promise<{ id: string }>;
 };
 
-export default async function VendedorAliasPage({ params }: Props) {
+/** Legacy singular path → canonical `/profile/:id`. */
+export default async function VendedorRedirectPage({ params }: Props) {
   const { id } = await params;
-  redirect(routes.sellerProfile(id));
+  redirect(routes.profile(id));
 }

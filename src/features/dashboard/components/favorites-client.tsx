@@ -69,7 +69,7 @@ export function FavoritesClient() {
 
   if (idList.length === 0) {
     return (
-      <div className="rounded-md border border-border/60 bg-card/40 px-5 py-10 text-center space-y-2">
+      <div className="rounded-md border border-dashed border-border/60 bg-card/40 px-5 py-10 text-center space-y-2">
         <p className="text-sm text-muted-foreground">
           Você ainda não salvou anúncios.
         </p>
@@ -85,7 +85,7 @@ export function FavoritesClient() {
 
   if (listings.length === 0) {
     return (
-      <div className="rounded-md border border-border/60 bg-card/40 px-5 py-10 text-center space-y-2">
+      <div className="rounded-md border border-dashed border-border/60 bg-card/40 px-5 py-10 text-center space-y-2">
         <p className="text-sm text-muted-foreground">
           {idList.length} favorito{idList.length === 1 ? "" : "s"} salvos — alguns
           podem estar indisponíveis no momento.
@@ -101,7 +101,7 @@ export function FavoritesClient() {
   }
 
   return (
-    <div className="grid gap-4 grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
       {listings.map((listing) => (
         <ListingCard key={listing.id} listing={listing} />
       ))}

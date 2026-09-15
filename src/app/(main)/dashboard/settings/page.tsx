@@ -12,8 +12,7 @@ export default function DashboardSettingsPage() {
     <RequireAuth>
       <DashboardShell
         title="Configurações"
-        description="Dados da conta e preferências."
-        breadcrumb={["Conta", "Configurações"]}
+        description="Perfil, PIX, notificações e preferências da conta."
       >
         <SettingsClient />
       </DashboardShell>

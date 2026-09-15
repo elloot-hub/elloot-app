@@ -1,12 +1,21 @@
 /** App routes — English paths only. Canonical market is `/market`. */
 export const routes = {
   home: "/",
-  /** Browse catalog. Query: `?category=slug` (legacy `?game=` still accepted by API). */
+  /** Category directory. Browse: `/market/jogos/free-fire`. Search: `/market?q=`. */
   market: "/market",
+  /** Category browse from `slugPath` (`/jogos/free-fire` or `jogos/free-fire`). */
+  marketCategory: (slugPath: string) => {
+    const path = slugPath.replace(/^\/+/, "").replace(/\/+$/, "");
+    return path ? (`/market/${path}` as const) : ("/market" as const);
+  },
   cart: "/cart",
   listing: (id: string) => `/listings/${id}` as const,
-  sellerProfile: (id: string) => `/vendedores/${id}` as const,
-  seller: (id: string) => `/vendedores/${id}` as const,
+  /** Public user/seller profile by username (or id fallback). */
+  profile: (usernameOrId: string) => `/profile/${usernameOrId}` as const,
+  /** @deprecated Prefer `routes.profile`. */
+  sellerProfile: (id: string) => `/profile/${id}` as const,
+  /** @deprecated Prefer `routes.profile`. */
+  seller: (id: string) => `/profile/${id}` as const,
   sell: "/sell",
 
   /** Logged-in hub (overview + buyer/seller tools). */
@@ -42,8 +51,9 @@ export const routes = {
   login: "/login",
   register: "/register",
   forgotPassword: "/forgot-password",
+  resetPassword: "/reset-password",
   authCallback: "/auth/callback",
-  /** Design sandbox — not product UI. */
+  /** Design sandbox — not product UI. Blocked in production middleware. */
   uiLab: "/ui",
 
   // Footer / institutional

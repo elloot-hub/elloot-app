@@ -13,7 +13,6 @@ export default function DashboardReviewsMinePage() {
       <DashboardShell
         title="Minhas avaliações"
         description="Avaliações que você deixou após concluir compras."
-        breadcrumb={["Conta", "Compras", "Minhas avaliações"]}
       >
         <ReviewsDashboardClient mode="mine" />
       </DashboardShell>

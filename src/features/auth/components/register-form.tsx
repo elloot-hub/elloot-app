@@ -10,6 +10,11 @@ import { FcGoogle } from "react-icons/fc";
 
 import { discordAuthUrl, fetchProviders, googleAuthUrl } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/context";
+import {
+  PASSWORD_MIN_LENGTH,
+  passwordPolicyHint,
+  validatePassword,
+} from "@/features/auth/password-policy";
 import { ApiError } from "@/lib/api/errors";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -26,6 +31,7 @@ export function RegisterForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   const [providers, setProviders] = useState({
@@ -52,13 +58,26 @@ export function RegisterForm() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setNotice(null);
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
     setPending(true);
     try {
-      await register({
+      const result = await register({
         email,
         password,
         name: name.trim() || undefined,
       });
+      if (!result.user) {
+        setNotice(
+          result.message ??
+            "Se este e-mail estiver disponível, a conta foi criada. Caso já exista, entre ou recupere a senha.",
+        );
+        return;
+      }
       router.replace(routes.market);
     } catch (err) {
       setError(
@@ -150,17 +169,26 @@ export function RegisterForm() {
             type="password"
             autoComplete="new-password"
             required
-            minLength={8}
+            minLength={PASSWORD_MIN_LENGTH}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="h-11 rounded-xl px-3"
-            placeholder="Mínimo 8 caracteres"
+            placeholder={passwordPolicyHint()}
           />
+          <p className="text-xs text-muted-foreground">{passwordPolicyHint()}</p>
         </div>
 
         {error ? (
           <p className="text-sm text-destructive" role="alert">
             {error}
+          </p>
+        ) : null}
+        {notice ? (
+          <p className="text-sm text-muted-foreground" role="status">
+            {notice}{" "}
+            <Link href={routes.login} className="font-medium text-primary">
+              Entrar
+            </Link>
           </p>
         ) : null}
 

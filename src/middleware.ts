@@ -6,6 +6,7 @@ const ACCESS_COOKIE = "elloot_at";
 const SESSION_HINT_COOKIE = "elloot_session";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/sell", "/orders"] as const;
+const isProd = process.env.NODE_ENV === "production";
 
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
@@ -17,7 +18,8 @@ function isAuthPage(pathname: string): boolean {
   return (
     pathname === "/login" ||
     pathname === "/register" ||
-    pathname === "/forgot-password"
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password"
   );
 }
 
@@ -35,6 +37,11 @@ function safeInternalNext(value: string | null): string {
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (isProd && (pathname === "/ui" || pathname.startsWith("/ui/"))) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
   const token = request.cookies.get(ACCESS_COOKIE)?.value;
   const hint = request.cookies.get(SESSION_HINT_COOKIE)?.value;
   const hasSession = Boolean((token && token.length > 10) || hint === "1");
@@ -65,5 +72,8 @@ export const config = {
     "/login",
     "/register",
     "/forgot-password",
+    "/reset-password",
+    "/ui",
+    "/ui/:path*",
   ],
 };

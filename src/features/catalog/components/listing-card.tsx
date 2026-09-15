@@ -13,11 +13,14 @@ import { FavoriteButton } from "@/features/favorites";
 import type { ListingSummary } from "@/types/api";
 import { formatBRLFromCents } from "@/lib/format";
 import { routes } from "@/lib/routes";
+import { listingRouteRef } from "@/lib/public-codes";
 import { cn } from "@/lib/utils";
 
 type Props = {
   listing: ListingSummary;
   priority?: boolean;
+  /** Modo prévia: sem link nem favorito (ex.: fluxo de venda). */
+  preview?: boolean;
 };
 
 function sellerInitial(name: string | null) {
@@ -138,105 +141,121 @@ function MediaCollage({
   );
 }
 
-export function ListingCard({ listing }: Props) {
+export function ListingCard({ listing, preview = false }: Props) {
   const urls = listing.media.map((m) => m.url).filter(Boolean);
-  const mediaCount = listing.mediaCount ?? urls.length;
   const vertical = listingVertical(listing.category);
   const visual = getCategoryVisual(vertical.slug);
   const sellerName = listing.seller.name?.trim() || "Vendedor";
   const isDynamic = listing.listingModel === "DYNAMIC";
   const isAuto = listing.deliveryMode === "AUTO";
 
-  return (
-    <div
-      className={cn(
-        "group relative flex flex-col overflow-hidden rounded-md border border-border/60",
-        "bg-card/50 shadow-sm transition-all duration-300",
-        "hover:border-primary/45 hover:bg-card/80 hover:shadow-md hover:shadow-primary/5",
-      )}
-    >
-      <div className="absolute top-2 right-2 z-[2]">
-        <FavoriteButton listingId={listing.id} size="sm" />
+  const body = (
+    <>
+      <div className="relative aspect-[18/10] overflow-hidden bg-muted/30">
+        <MediaCollage
+          urls={urls}
+          fallback={{ gradient: visual.gradient, label: vertical.name }}
+        />
+
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/20" />
+
+        <div className="absolute top-2 left-2 z-[1] flex items-center gap-1">
+          {isAuto ? (
+            <StatusTip
+              label="Entrega automática"
+              className="h-auto w-auto gap-1 rounded-sm bg-emerald-500/95 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm"
+            >
+              <FaTruckFast className="size-3" />
+              Entrega automática
+            </StatusTip>
+          ) : null}
+        </div>
       </div>
 
-      <Link href={routes.listing(listing.id)} className="flex flex-1 flex-col">
-        <div className="relative aspect-[18/10] overflow-hidden bg-muted/30">
-          <MediaCollage
-            urls={urls}
-            fallback={{ gradient: visual.gradient, label: vertical.name }}
-          />
+      <div className="flex flex-1 flex-col gap-2.5 p-3">
+        <div className="flex items-start gap-2">
+          <h2 className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold leading-snug tracking-tight text-balance uppercase">
+            {listing.title}
+          </h2>
+        </div>
 
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/20" />
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-lg font-bold tracking-tight text-primary tabular-nums">
+            {formatBRLFromCents(listing.priceCents)}
+            {isDynamic ? (
+              <span className="ml-0.5 text-sm font-semibold text-primary/70">
+                +
+              </span>
+            ) : null}
+          </p>
 
-          <div className="absolute top-2 left-2 z-[1] flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             {isAuto ? (
               <StatusTip
                 label="Entrega automática"
-                className="h-auto w-auto gap-1 rounded-sm bg-emerald-500/95 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm"
+                className="bg-emerald-500/15 text-emerald-400"
               >
-                <FaTruckFast className="size-3" />
-                Entrega automática
+                <FaTruckFast className="size-3.5" />
+              </StatusTip>
+            ) : null}
+
+            {isDynamic ? (
+              <StatusTip
+                label="Anúncio dinâmico — várias ofertas no mesmo anúncio"
+                className="bg-violet-500/15 text-violet-400"
+              >
+                <LayersIcon className="size-3.5" />
               </StatusTip>
             ) : null}
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col gap-2.5 p-3">
-          <div className="flex items-start gap-2">
-            <h2 className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold leading-snug tracking-tight text-balance uppercase">
-              {listing.title}
-            </h2>
-          </div>
-
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-lg font-bold tracking-tight text-primary tabular-nums">
-              {formatBRLFromCents(listing.priceCents)}
-              {isDynamic ? (
-                <span className="ml-0.5 text-sm font-semibold text-primary/70">
-                  +
-                </span>
-              ) : null}
-            </p>
-
-            <div className="flex shrink-0 items-center gap-1">
-              {isAuto ? (
-                <StatusTip
-                  label="Entrega automática"
-                  className="bg-emerald-500/15 text-emerald-400"
-                >
-                  <FaTruckFast className="size-3.5" />
-                </StatusTip>
-              ) : null}
-
-              {isDynamic ? (
-                <StatusTip
-                  label="Anúncio dinâmico — várias ofertas no mesmo anúncio"
-                  className="bg-violet-500/15 text-violet-400"
-                >
-                  <LayersIcon className="size-3.5" />
-                </StatusTip>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/50 pt-2.5">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <span
-                className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary"
-                aria-hidden
-              >
-                {sellerInitial(listing.seller.name)}
-              </span>
-              <span className="truncate text-xs text-muted-foreground">
-                {sellerName}
-              </span>
-            </div>
-            <span className="shrink-0 truncate text-[10px] font-medium text-muted-foreground/80">
-              {vertical.name}
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/50 pt-2.5">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span
+              className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary"
+              aria-hidden
+            >
+              {sellerInitial(listing.seller.name)}
+            </span>
+            <span className="truncate text-xs text-muted-foreground">
+              {sellerName}
             </span>
           </div>
+          <span className="shrink-0 truncate text-[10px] font-medium text-muted-foreground/80">
+            {vertical.name}
+          </span>
         </div>
-      </Link>
+      </div>
+    </>
+  );
+
+  return (
+    <div
+      className={cn(
+        "group relative flex flex-col overflow-hidden rounded-md border border-border/60",
+        "bg-card/50 shadow-sm transition-all duration-300",
+        preview
+          ? "pointer-events-none"
+          : "hover:border-primary/45 hover:bg-card/80 hover:shadow-md hover:shadow-primary/5",
+      )}
+    >
+      {!preview ? (
+        <div className="absolute top-2 right-2 z-[2]">
+          <FavoriteButton listingId={listing.id} size="sm" />
+        </div>
+      ) : null}
+
+      {preview ? (
+        <div className="flex flex-1 flex-col">{body}</div>
+      ) : (
+        <Link
+          href={routes.listing(listingRouteRef(listing))}
+          className="flex flex-1 flex-col"
+        >
+          {body}
+        </Link>
+      )}
     </div>
   );
 }

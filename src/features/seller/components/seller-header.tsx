@@ -4,18 +4,16 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   BadgeCheckIcon,
-  CheckCircle2Icon,
   ClockIcon,
-  MailIcon,
-  MessageSquareIcon,
-  PhoneIcon,
+  SettingsIcon,
   Share2Icon,
-  ShieldCheckIcon,
   SparklesIcon,
   StarIcon,
-  XCircleIcon,
+  StoreIcon,
 } from "lucide-react";
+import { useAuth } from "@/features/auth/context";
 import type { SellerPublic } from "@/types/api";
+import { buttonVariants } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +25,9 @@ type Props = {
 function formatMemberSince(createdAt?: string) {
   if (!createdAt) return "Membro recente";
   const created = new Date(createdAt);
+  if (Number.isNaN(created.getTime()) || created.getTime() <= 0) {
+    return "Membro recente";
+  }
   const days = Math.max(
     0,
     Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24)),
@@ -46,6 +47,7 @@ function formatLastSeen(lastSeenAt?: string | null, isOnline?: boolean) {
   if (isOnline) return "Online agora";
   if (!lastSeenAt) return "Visto recentemente";
   const diffMs = Date.now() - new Date(lastSeenAt).getTime();
+  if (!Number.isFinite(diffMs) || diffMs < 0) return "Visto recentemente";
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return "Visto agora há pouco";
   if (mins < 60) return `Visto há ${mins} min`;
@@ -58,164 +60,161 @@ function formatLastSeen(lastSeenAt?: string | null, isOnline?: boolean) {
 
 function sellerInitial(name?: string | null) {
   const trimmed = name?.trim();
-  if (!trimmed) return "V";
+  if (!trimmed) return "?";
   return trimmed.charAt(0).toUpperCase();
 }
 
 export function SellerHeader({ seller, totalListingsCount }: Props) {
+  const { user } = useAuth();
   const [copied, setCopied] = useState(false);
-  const name = seller.name?.trim() || "Vendedor GGMAX";
-  const verifications = seller.verifications || {
-    email: true,
-    phone: true,
-    documents: true,
+  const username = seller.username?.trim() || null;
+  const name = seller.name?.trim() || username || "Usuário";
+  const bio =
+    seller.bio?.trim() ||
+    `Perfil público na Elloot, com reputação, avaliações recebidas e ${totalListingsCount} anúncio${totalListingsCount === 1 ? "" : "s"} ativo${totalListingsCount === 1 ? "" : "s"}.`;
+  const isOwnProfile = Boolean(user?.id && user.id === seller.id);
+  const verifications = seller.verifications ?? {
+    email: false,
+    phone: false,
+    documents: false,
   };
-  const isOnline = seller.isOnline ?? true;
-  const ratingAvg = seller.stats?.ratingAvg ?? 4.9;
-  const ratingCount = seller.stats?.ratingCount ?? 142;
+  const isOnline = seller.isOnline ?? false;
+  const ratingAvg = seller.stats?.ratingAvg;
+  const ratingCount = seller.stats?.ratingCount ?? 0;
 
   const handleShare = () => {
-    if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    if (typeof window === "undefined") return;
+    void navigator.clipboard.writeText(window.location.href);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="relative overflow-hidden rounded-md border border-border/60 bg-card/40">
-      {/* Top Banner Gradient */}
-      <div className="h-32 w-full bg-gradient-to-r from-primary/30 via-violet-600/20 to-sky-500/20 sm:h-40 relative">
-        <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,white,transparent)]" />
-        <div className="absolute top-4 right-4 flex items-center gap-2">
-          <button
-            onClick={handleShare}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/40 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md transition-all hover:bg-black/60 active:scale-95"
-          >
-            <Share2Icon className="size-3.5" />
-            {copied ? "Link Copiado!" : "Compartilhar"}
-          </button>
-        </div>
-      </div>
+    <div className="rounded-xl border border-border/60 bg-card/50 p-4 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-1 gap-4">
+          <div className="relative shrink-0">
+            {seller.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={seller.avatarUrl}
+                alt={name}
+                className="size-16 rounded-xl border border-border/60 bg-card object-cover sm:size-20"
+              />
+            ) : (
+              <div className="flex size-16 items-center justify-center rounded-xl border border-border/60 bg-primary/15 text-2xl font-semibold text-primary sm:size-20">
+                {sellerInitial(name)}
+              </div>
+            )}
+          </div>
 
-      {/* Profile Info Section */}
-      <div className="relative px-4 pb-5 pt-0 sm:px-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          {/* Avatar & Main Info */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-14 sm:-mt-16">
-            <div className="relative">
-              {seller.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={seller.avatarUrl}
-                  alt={name}
-                  className="size-24 rounded-full border-4 border-background bg-card object-cover shadow-md ring-2 ring-primary/40 sm:size-28"
-                />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="truncate font-heading text-2xl font-semibold tracking-tight text-foreground">
+                {username || name}
+              </h1>
+              {verifications.documents ? (
+                <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                  <BadgeCheckIcon className="size-3.5" />
+                  Verificado
+                </span>
               ) : (
-                <div className="flex size-24 items-center justify-center rounded-full border-4 border-background bg-primary/20 text-3xl font-black text-primary shadow-md ring-2 ring-primary/40 sm:size-28">
-                  {sellerInitial(seller.name)}
-                </div>
+                <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  Não verificado
+                </span>
               )}
               <span
                 className={cn(
-                  "absolute bottom-1 right-1 flex size-5 items-center justify-center rounded-full border-2 border-background font-bold shadow-sm",
-                  isOnline ? "bg-emerald-500" : "bg-muted-foreground",
+                  "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase",
+                  isOnline
+                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                    : "bg-muted text-muted-foreground",
                 )}
-                title={isOnline ? "Vendedor Online" : "Vendedor Offline"}
               >
-                <span className={cn("size-2 rounded-full", isOnline ? "animate-pulse bg-white" : "bg-white/60")} />
+                {isOnline ? "ON" : "OFF"}
+              </span>
+              {(seller.reputationScore ?? 0) > 0 ? (
+                <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                  <SparklesIcon className="size-3" />
+                  {seller.reputationScore} XP
+                </span>
+              ) : null}
+            </div>
+
+            {username && name !== username ? (
+              <p className="text-sm text-muted-foreground">{name}</p>
+            ) : null}
+
+            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              {bio}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                <StarIcon className="size-3.5 fill-amber-400 text-amber-400" />
+                {ratingAvg != null ? ratingAvg.toFixed(1) : "—"}
+                <span className="font-normal text-muted-foreground">
+                  ({ratingCount}{" "}
+                  {ratingCount === 1 ? "avaliação" : "avaliações"})
+                </span>
+              </span>
+              <span aria-hidden>•</span>
+              <span className="inline-flex items-center gap-1">
+                <ClockIcon className="size-3.5" />
+                {formatMemberSince(seller.createdAt)}
+              </span>
+              <span aria-hidden>•</span>
+              <span
+                className={cn(
+                  "font-medium",
+                  isOnline
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-muted-foreground",
+                )}
+              >
+                {formatLastSeen(seller.lastSeenAt, isOnline)}
               </span>
             </div>
-
-            <div className="space-y-1.5 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl truncate">
-                  {name}
-                </h1>
-                {verifications.documents && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-xs font-semibold text-sky-400 border border-sky-500/30">
-                    <BadgeCheckIcon className="size-3.5" />
-                    Vendedor Verificado
-                  </span>
-                )}
-                {(seller.reputationScore ?? 0) > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-400 border border-amber-500/30">
-                    <SparklesIcon className="size-3" />
-                    Reputação {seller.reputationScore} XP
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1 font-semibold text-foreground">
-                  <StarIcon className="size-3.5 fill-amber-400 text-amber-400" />
-                  {ratingAvg.toFixed(1)}
-                  <span className="text-muted-foreground font-normal">
-                    ({ratingCount} avaliações)
-                  </span>
-                </span>
-                <span>•</span>
-                <span className="inline-flex items-center gap-1">
-                  <ClockIcon className="size-3.5" />
-                  {formatMemberSince(seller.createdAt)}
-                </span>
-                <span>•</span>
-                <span className={cn("font-medium", isOnline ? "text-emerald-400" : "text-muted-foreground")}>
-                  {formatLastSeen(seller.lastSeenAt, isOnline)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-0">
-            <Link
-              href={routes.messages}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground shadow transition-all hover:bg-primary/90 active:scale-95"
-            >
-              <MessageSquareIcon className="size-4" />
-              Conversar com Vendedor
-            </Link>
-            <div className="rounded-md border border-border/60 bg-card/40 px-3 py-2 text-center">
-              <span className="block text-[10px] uppercase font-semibold text-muted-foreground">Anúncios Ativos</span>
-              <span className="text-sm font-bold text-foreground tabular-nums">{totalListingsCount}</span>
-            </div>
           </div>
         </div>
 
-        {/* Verifications Chips */}
-        <div className="mt-5 pt-4 border-t border-border/50 flex flex-wrap items-center justify-between gap-3">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Status de Verificação do Vendedor:
-          </span>
-          <div className="flex flex-wrap items-center gap-2">
-            <VerificationChip label="E-mail" ok={verifications.email} icon={<MailIcon className="size-3" />} />
-            <VerificationChip label="Telefone" ok={verifications.phone} icon={<PhoneIcon className="size-3" />} />
-            <VerificationChip label="Documento Identidade" ok={verifications.documents} icon={<ShieldCheckIcon className="size-3" />} />
-          </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleShare}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "h-9 gap-2 rounded-md",
+            )}
+          >
+            <Share2Icon className="size-3.5" />
+            {copied ? "Link copiado" : "Compartilhar"}
+          </button>
+          {isOwnProfile ? (
+            <Link
+              href={routes.dashboardSettings}
+              className={cn(
+                buttonVariants({ size: "sm" }),
+                "h-9 gap-2 rounded-md",
+              )}
+            >
+              <SettingsIcon className="size-4" />
+              Editar perfil
+            </Link>
+          ) : (
+            <a
+              href="#anuncios"
+              className={cn(
+                buttonVariants({ size: "sm" }),
+                "h-9 gap-2 rounded-md",
+              )}
+            >
+              <StoreIcon className="size-4" />
+              Ver anúncios
+            </a>
+          )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function VerificationChip({ label, ok, icon }: { label: string; ok: boolean; icon: React.ReactNode }) {
-  return (
-    <div
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium border transition-colors",
-        ok
-          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-          : "border-border/60 bg-muted/30 text-muted-foreground",
-      )}
-    >
-      {icon}
-      <span>{label}</span>
-      {ok ? (
-        <CheckCircle2Icon className="size-3 text-emerald-400" />
-      ) : (
-        <XCircleIcon className="size-3 opacity-60" />
-      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MenuIcon } from "lucide-react";
 import { useAuth } from "@/features/auth/context";
 import { HeaderSearch } from "@/features/catalog/components/header-search";
@@ -21,45 +21,56 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function SiteHeader() {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
-  const [isVisible, setIsVisible] = useState(true);
+  // Hide-on-scroll temporariamente desligado para testar navbar fixa.
+  // const [isVisible, setIsVisible] = useState(true);
+  // const lastScrollY = useRef(0);
+  // const ticking = useRef(false);
   const [isAtTop, setIsAtTop] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
-  const lastScrollY = useRef(0);
-  const ticking = useRef(false);
 
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
+  // useEffect(() => {
+  //   function update() {
+  //     const currentScrollY = window.scrollY;
+  //     const goingDown = currentScrollY > lastScrollY.current;
+  //     const goingUp = currentScrollY < lastScrollY.current;
+  //
+  //     setIsAtTop(currentScrollY <= 0);
+  //
+  //     if (currentScrollY <= 0 || menuOpen) {
+  //       setIsVisible(true);
+  //     } else if (goingDown && currentScrollY > 100) {
+  //       setIsVisible(false);
+  //     } else if (goingUp) {
+  //       setIsVisible(true);
+  //     }
+  //
+  //     lastScrollY.current = currentScrollY;
+  //     ticking.current = false;
+  //   }
+  //
+  //   function handleScroll() {
+  //     if (ticking.current) return;
+  //     ticking.current = true;
+  //     window.requestAnimationFrame(update);
+  //   }
+  //
+  //   update();
+  //   window.addEventListener("scroll", handleScroll, { passive: true });
+  //   return () => window.removeEventListener("scroll", handleScroll);
+  // }, [menuOpen]);
+
+  // Só atualiza o fundo/blur da navbar ao rolar (sem esconder).
   useEffect(() => {
     function update() {
-      const currentScrollY = window.scrollY;
-      const goingDown = currentScrollY > lastScrollY.current;
-      const goingUp = currentScrollY < lastScrollY.current;
-
-      setIsAtTop(currentScrollY <= 0);
-
-      if (currentScrollY <= 0 || menuOpen) {
-        setIsVisible(true);
-      } else if (goingDown && currentScrollY > 100) {
-        setIsVisible(false);
-      } else if (goingUp) {
-        setIsVisible(true);
-      }
-
-      lastScrollY.current = currentScrollY;
-      ticking.current = false;
+      setIsAtTop(window.scrollY <= 0);
     }
-
-    function handleScroll() {
-      if (ticking.current) return;
-      ticking.current = true;
-      window.requestAnimationFrame(update);
-    }
-
     update();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [menuOpen]);
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
 
   function handleLogout() {
     logout();
@@ -71,7 +82,9 @@ export function SiteHeader() {
       <header
         className={cn(
           "fixed top-0 right-0 left-0 z-50 will-change-transform transition-transform duration-300 ease-out",
-          isVisible ? "translate-y-0" : "pointer-events-none -translate-y-full",
+          // Hide-on-scroll: descomente a linha abaixo e remova `translate-y-0` fixo.
+          // isVisible ? "translate-y-0" : "pointer-events-none -translate-y-full",
+          "translate-y-0",
         )}
       >
         {!isAtTop ? (

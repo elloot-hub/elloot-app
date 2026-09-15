@@ -3,13 +3,12 @@
 import { useMemo, useState } from "react";
 import {
   CoinsIcon,
-  CrownIcon,
   GridIcon,
   LayersIcon,
   PackageIcon,
   SearchIcon,
-  ShieldAlertIcon,
   SparklesIcon,
+  StoreIcon,
   SwordsIcon,
   WrenchIcon,
 } from "lucide-react";
@@ -135,12 +134,14 @@ export function SellerClassListings({ listings, sellerName }: Props) {
       {/* Header & Search Bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <CrownIcon className="size-5 text-amber-400" />
-            Catálogo de Anúncios à Venda
+          <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground">
+            <StoreIcon className="size-5 text-primary" />
+            Anúncios à venda
           </h2>
           <p className="text-xs text-muted-foreground">
-            {filteredListings.length} produtos disponíveis fornecidos por {sellerName}.
+            {listings.length === 0
+              ? `${sellerName} ainda não tem anúncios ativos.`
+              : `${filteredListings.length} de ${listings.length} anúncio${listings.length === 1 ? "" : "s"}`}
           </p>
         </div>
 
@@ -230,14 +231,24 @@ export function SellerClassListings({ listings, sellerName }: Props) {
       </div>
 
       {/* Listings View */}
-      {filteredListings.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-border/60 bg-card/40 p-10 text-center">
-          <ShieldAlertIcon className="size-10 text-muted-foreground/60 mb-2" />
+      {listings.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-card/30 px-6 py-14 text-center">
+          <PackageIcon className="mb-3 size-10 text-muted-foreground/50" />
           <h3 className="text-base font-semibold text-foreground">
-            Nenhum produto encontrado
+            Nenhum anúncio ativo
           </h3>
-          <p className="text-xs text-muted-foreground max-w-sm mt-1">
-            Não foram encontrados produtos nesta classe ou com os termos pesquisados.
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+            Quando {sellerName} publicar itens, eles aparecem aqui.
+          </p>
+        </div>
+      ) : filteredListings.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-card/30 px-6 py-10 text-center">
+          <SearchIcon className="mb-2 size-8 text-muted-foreground/50" />
+          <h3 className="text-base font-semibold text-foreground">
+            Nenhum resultado
+          </h3>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+            Tente outro termo ou classe.
           </p>
         </div>
       ) : viewMode === "SECTIONS" && selectedClass === "ALL" ? (

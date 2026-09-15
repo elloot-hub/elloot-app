@@ -5,6 +5,13 @@ import type {
   ListingProductType,
 } from "@/types/api";
 
+export type CatalogListingsSort =
+  | "recent"
+  | "best_sellers"
+  | "price_asc"
+  | "price_desc"
+  | "reputation";
+
 export type CatalogListingsQuery = {
   category?: string;
   /** @deprecated use category */
@@ -14,6 +21,7 @@ export type CatalogListingsQuery = {
   cursor?: string;
   minPriceCents?: number;
   maxPriceCents?: number;
+  sort?: CatalogListingsSort;
 };
 
 export type ProductTypeOption = {
@@ -132,8 +140,35 @@ export async function fetchCatalogListings(query: CatalogListingsQuery = {}) {
           cursor: query.cursor,
           minPriceCents: query.minPriceCents,
           maxPriceCents: query.maxPriceCents,
+          sort: query.sort,
         },
       }),
     emptyListings,
+  );
+}
+
+export type CategoryChildStat = {
+  id: string;
+  slug: string;
+  slugPath: string;
+  name: string;
+  count: number;
+};
+
+export type CategoryStats = {
+  total: number;
+  children: CategoryChildStat[];
+};
+
+const emptyStats: CategoryStats = { total: 0, children: [] };
+
+export async function fetchCategoryStats(category: string) {
+  return safeCatalog(
+    () =>
+      api.get<CategoryStats>("/api/catalog/category-stats", {
+        auth: false,
+        query: { category },
+      }),
+    emptyStats,
   );
 }

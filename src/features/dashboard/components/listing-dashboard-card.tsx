@@ -4,17 +4,19 @@ import Link from "next/link";
 import { useState } from "react";
 
 import type { ListingDetail, ListingStatus } from "@/types/api";
-import { ExternalLinkIcon, PencilIcon } from "lucide-react";
+import { ExternalLinkIcon, PackageIcon, PencilIcon } from "lucide-react";
 
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 
 import { pauseListing, unpauseListing } from "@/features/listings/api";
 import { listingVertical } from "@/features/catalog/listing-category";
+import { StockQuickEditorDialog } from "@/features/dashboard/components/stock-quick-editor-dialog";
 
 import { formatBRLFromCents } from "@/lib/format";
 import { ApiError } from "@/lib/api/errors";
 import { routes } from "@/lib/routes";
+import { listingRouteRef } from "@/lib/public-codes";
 import { cn } from "@/lib/utils";
 
 const STATUS_CONFIG: Record<ListingStatus, { label: string; dotClass: string; textClass: string; bgClass: string }> = {
@@ -74,8 +76,17 @@ type ListingDashboardCardProps = {
 
 function stockLabel(listing: ListingDetail) {
   if (listing.listingModel === "DYNAMIC") {
+    const total =
+      listing.offers?.reduce((sum, o) => sum + (o.stockQuantity ?? 0), 0) ?? 0;
     const count = listing.offers?.length ?? 0;
-    return count === 1 ? "1 variante" : `${count} variantes`;
+    return `${total} un. · ${count} oferta${count === 1 ? "" : "s"}`;
+  }
+  const autoCount = listing.autoStockItems?.length;
+  if (listing.deliveryMode === "AUTO" && typeof autoCount === "number") {
+    return `${autoCount} un. · auto`;
+  }
+  if (listing.deliveryMode === "AUTO") {
+    return `${listing.stockQuantity} un. · auto`;
   }
   return `${listing.stockQuantity} un.`;
 }
@@ -87,11 +98,14 @@ export function ListingDashboardCard({
 }: ListingDashboardCardProps) {
   const [toggling, setToggling] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [stockOpen, setStockOpen] = useState(false);
 
   const cover = listing.media[0]?.url;
   const vertical = listingVertical(listing.category);
   const status = STATUS_CONFIG[listing.status] ?? STATUS_CONFIG.DRAFT;
   const canEdit = listing.status !== "SOLD" && listing.status !== "REMOVED";
+  const canManageStock =
+    listing.status !== "REMOVED" && listing.status !== "PENDING_REVIEW";
   const canToggle = listing.status === "ACTIVE" || listing.status === "PAUSED";
   const isActive = listing.status === "ACTIVE";
 
@@ -180,9 +194,9 @@ export function ListingDashboardCard({
         </dl>
 
         <div className="mt-auto space-y-3 border-t border-border/50 pt-4">
-          <div className="flex flex-row items-center justify-between gap-2">
+          <div className="flex flex-row flex-wrap items-center justify-between gap-2">
             <Link
-              href={routes.listing(listing.id)}
+              href={routes.listing(listingRouteRef(listing))}
               className={cn(
                 buttonVariants({ variant: "outline", size: "sm" }),
                 "flex-1 sm:flex-none",
@@ -192,9 +206,22 @@ export function ListingDashboardCard({
               Ver anúncio
             </Link>
 
+            {canManageStock ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 sm:flex-none"
+                onClick={() => setStockOpen(true)}
+              >
+                <PackageIcon className="size-3.5" />
+                Estoque
+              </Button>
+            ) : null}
+
             {canEdit ? (
               <Link
-                href={routes.dashboardListingEdit(listing.id)}
+                href={routes.dashboardListingEdit(listingRouteRef(listing))}
                 className={cn(
                   buttonVariants({ size: "sm" }),
                   "flex-1 sm:flex-none",
@@ -226,8 +253,18 @@ export function ListingDashboardCard({
               </span>
             </Toggle>
           </div>
+          {toggleError ? (
+            <p className="text-xs text-destructive">{toggleError}</p>
+          ) : null}
         </div>
       </div>
+
+      <StockQuickEditorDialog
+        listing={listing}
+        open={stockOpen}
+        onOpenChange={setStockOpen}
+        onUpdated={onUpdated}
+      />
     </article>
   );
 };

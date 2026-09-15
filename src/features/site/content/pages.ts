@@ -126,9 +126,16 @@ export const sitePages = {
     description: "Como pagar e receber na Elloot.",
     sections: [
       {
+        heading: "PIX",
         body: [
-          "No momento o ambiente de desenvolvimento usa pagamento sandbox (simulação de PIX). Em produção, os métodos disponíveis serão exibidos no checkout.",
-          "Vendedores recebem o valor liberado na carteira da plataforma e poderão sacar conforme as regras de saque (em evolução).",
+          "Compras são pagas via PIX no checkout. O valor fica retido em escrow até a entrega ser confirmada (ou o prazo de auto-liberação).",
+          "Após a liberação, o vendedor vê o saldo na carteira e pode solicitar saque por PIX, sujeito à verificação de identidade.",
+        ],
+      },
+      {
+        heading: "Outros métodos",
+        body: [
+          "Cartão e demais métodos podem ser adicionados no futuro. O checkout mostra apenas o que estiver disponível no momento da compra.",
         ],
       },
     ],

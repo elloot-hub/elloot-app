@@ -6,4 +6,10 @@
  */
 
 export { fetchWallet } from "./api";
-export type { WalletSummary, WalletLedgerEntry, WalletLedgerType } from "./api";
+export type {
+  WalletSummary,
+  WalletLedgerEntry,
+  WalletLedgerType,
+  PendingReleaseBreakdown,
+  PendingReleaseHold,
+} from "./api";

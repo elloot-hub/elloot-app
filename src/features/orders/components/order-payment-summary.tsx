@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { InfoIcon, ShieldCheckIcon } from "lucide-react";
 import { formatBRLFromCents } from "@/lib/format";
+import { formatOrderCode } from "@/lib/order-code";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 type Props = {
   orderId: string;
+  orderCode?: string | null;
   listing: {
     id: string;
     title: string;
@@ -21,9 +23,9 @@ type Props = {
   className?: string;
 };
 
-export function OrderPaymentSummary({ orderId, listing, amountCents, feeCents, methodLabel = "PIX", sellerName, className, }: Props) {
+export function OrderPaymentSummary({ orderId, orderCode, listing, amountCents, feeCents, methodLabel = "PIX", sellerName, className, }: Props) {
   const subtotalCents = Math.max(0, amountCents - feeCents);
-  const shortId = orderId.slice(-8).toUpperCase();
+  const label = formatOrderCode({ id: orderId, code: orderCode });
 
   return (
     <aside

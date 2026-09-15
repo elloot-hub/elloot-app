@@ -11,6 +11,7 @@ export type CreateListingOfferInput = {
   priceCents: number;
   stockQuantity?: number;
   deliveryMode?: DeliveryMode;
+  autoStockLines?: string[];
 };
 
 export type CreateListingInput = {
@@ -22,6 +23,7 @@ export type CreateListingInput = {
   productType?: ListingProductType | null;
   listingModel?: ListingModel;
   deliveryMode?: DeliveryMode;
+  autoStockLines?: string[];
   /** Preferred: ids returned by uploadMedia (purpose LISTING). */
   mediaAssetIds?: string[];
   /** @deprecated Prefer mediaAssetIds. */
@@ -57,6 +59,7 @@ export type UpdateListingInput = {
   stockQuantity?: number;
   productType?: ListingProductType | null;
   deliveryMode?: DeliveryMode;
+  autoStockLines?: string[];
   mediaAssetIds?: string[];
   mediaUrls?: string[];
   offers?: UpdateListingOfferInput[];
@@ -74,6 +77,24 @@ export async function updateListing(id: string, input: UpdateListingInput) {
       } | null;
     };
   }>(`/api/listings/${id}`, input);
+}
+
+export type UpdateListingStockInput = {
+  offerId?: string;
+  stockQuantity?: number;
+  appendLines?: string[];
+  removeItemIds?: string[];
+  replaceLines?: string[];
+};
+
+export async function updateListingStock(
+  id: string,
+  input: UpdateListingStockInput,
+) {
+  return api.patch<{ listing: ListingDetail }>(
+    `/api/listings/${id}/stock`,
+    input,
+  );
 }
 
 export async function publishListing(id: string) {

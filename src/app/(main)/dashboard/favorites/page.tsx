@@ -13,7 +13,6 @@ export default function DashboardFavoritesPage() {
       <DashboardShell
         title="Favoritos"
         description="Anúncios que você salvou para olhar depois."
-        breadcrumb={["Conta", "Compras", "Favoritos"]}
       >
         <FavoritesClient />
       </DashboardShell>

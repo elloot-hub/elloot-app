@@ -20,25 +20,31 @@ export type OrderParty = {
 
 export type Order = {
   id: string;
+  code: string;
   status: OrderStatus;
   amountCents: number;
   feeCents: number;
   offerId?: string | null;
   paidAt: string | null;
   deliveredAt: string | null;
+  /** Conteúdo entregue ao comprador (chaves, login, etc.). */
+  deliveryContent?: string | null;
   completedAt: string | null;
   expiresAt: string | null;
   createdAt: string;
   listing: {
     id: string;
+    code?: string;
     title: string;
     priceCents: number;
+    deliveryMode?: "MANUAL" | "AUTO";
     media: Array<{ url: string }>;
   };
   offer?: {
     id: string;
     title: string;
     priceCents: number;
+    deliveryMode?: "MANUAL" | "AUTO";
   } | null;
   buyer: OrderParty;
   seller: OrderParty;
@@ -63,6 +69,7 @@ export type Order = {
   } | null;
   dispute?: {
     id: string;
+    code?: string;
     openedById: string;
     reason: string;
     status: "OPEN" | "RESOLVED" | "CANCELLED" | string;

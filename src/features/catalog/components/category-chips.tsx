@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { marketCategoryHref } from "@/features/catalog/market-path";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import type { Category } from "@/types/api";
@@ -6,11 +7,17 @@ import type { Category } from "@/types/api";
 type Props = {
   categories: Category[];
   activeSlug?: string;
+  activeSlugPath?: string;
   className?: string;
 };
 
-/** Horizontal filter chips for market browse. */
-export function CategoryChips({ categories, activeSlug, className }: Props) {
+/** Horizontal filter chips for market browse (legacy / compact). */
+export function CategoryChips({
+  categories,
+  activeSlug,
+  activeSlugPath,
+  className,
+}: Props) {
   return (
     <div
       className={cn(
@@ -18,14 +25,18 @@ export function CategoryChips({ categories, activeSlug, className }: Props) {
         className,
       )}
     >
-      <Chip href={routes.market} active={!activeSlug}>
+      <Chip href={routes.market} active={!activeSlug && !activeSlugPath}>
         Todos
       </Chip>
       {categories.map((category) => (
         <Chip
           key={category.id}
-          href={`${routes.market}?category=${encodeURIComponent(category.slug)}`}
-          active={activeSlug === category.slug}
+          href={marketCategoryHref(category)}
+          active={
+            activeSlugPath
+              ? category.slugPath === activeSlugPath
+              : activeSlug === category.slug
+          }
         >
           {category.name}
         </Chip>
