@@ -45,7 +45,10 @@ jobs:
             postcss.config.mjs \
             .next \
             public \
-            -x ".next/cache/*"
+            -x ".next/cache/*" "*.map" ".next/types/*" ".next/diagnostics/*"
+
+      - name: Show zip size
+        run: ls -lh project.zip
 
       - name: Require Square Cloud secrets
         env:
@@ -64,6 +67,16 @@ jobs:
           exit $missing
 
       - name: Deploy on Square Cloud
+        uses: squarecloudofc/github-action@v2
+        with:
+          command: commit --file project.zip ${{ secrets.SQUARECLOUD_APP_ID }} --restart
+          token: ${{ secrets.SQUARE_CLOUD_TOKEN }}
+        # Square API sometimes times out on large Next zips; one automatic retry helps.
+        continue-on-error: true
+        id: deploy1
+
+      - name: Retry deploy on Square Cloud
+        if: steps.deploy1.outcome == 'failure'
         uses: squarecloudofc/github-action@v2
         with:
           command: commit --file project.zip ${{ secrets.SQUARECLOUD_APP_ID }} --restart
