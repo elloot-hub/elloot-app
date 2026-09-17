@@ -1,24 +1,38 @@
-import Link from "next/link";
-import { ArrowRightIcon, LockIcon, PackageIcon, ShieldCheckIcon } from "lucide-react";
+import { LockIcon, PackageIcon, ShieldCheckIcon } from "lucide-react";
 import { Container } from "@/components/layout/container";
-import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CategoryGrid } from "@/features/catalog/components/category-grid";
-import { ListingCard } from "@/features/catalog/components/listing-card";
-import { fetchBrowseCategories, fetchCatalogListings, } from "@/features/catalog/api";
-import { HOME_GRID_DESKTOP_LIMIT, pickHomeGridCategories, } from "@/features/catalog/home-categories";
+import {
+  fetchBrowseCategories,
+  fetchCatalogListings,
+} from "@/features/catalog/api";
+import {
+  HOME_GRID_DESKTOP_LIMIT,
+  pickHomeGridCategories,
+} from "@/features/catalog/home-categories";
+import { fetchHomeSections, HomeSections } from "@/features/home";
 import { HomeHero } from "@/features/marketing/components/home-hero";
 import { routes } from "@/lib/routes";
-import { cn } from "@/lib/utils";
 
 export default async function HomePage() {
-  const [{ categories }, catalog] = await Promise.all([
+  const [{ categories }, home] = await Promise.all([
     fetchBrowseCategories(),
-    fetchCatalogListings({ limit: 8 }),
+    fetchHomeSections(),
   ]);
 
-  const gridCategories = pickHomeGridCategories(categories, HOME_GRID_DESKTOP_LIMIT,);
-  const carouselCategories = categories.filter((c) => c.showInMenu || c.isFeatured).length > 0 ? categories.filter((c) => c.showInMenu || c.isFeatured) : categories.slice(0, 24);
+  const gridCategories = pickHomeGridCategories(
+    categories,
+    HOME_GRID_DESKTOP_LIMIT,
+  );
+  const carouselCategories =
+    categories.filter((c) => c.showInMenu || c.isFeatured).length > 0
+      ? categories.filter((c) => c.showInMenu || c.isFeatured)
+      : categories.slice(0, 24);
+
+  const fallbackListings =
+    home.sections.length === 0
+      ? (await fetchCatalogListings({ limit: 8 })).listings
+      : [];
 
   return (
     <>
@@ -45,54 +59,12 @@ export default async function HomePage() {
         </Container>
       </section>
 
-      <section className="py-8">
-        <Container className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Badge>
-                <p className="animate-rise font-heading tracking-wide">
-                  Anúncios recentes
-                </p>
-              </Badge>
-              <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                Anúncios recentes no Mercado
-              </h2>
-            </div>
-            <Link
-              href={routes.market}
-              className={cn(
-                buttonVariants({ variant: "default", size: "sm" }),
-                "rounded-full",
-              )}
-            >
-              Abrir mercado
-            </Link>
-          </div>
-
-          {catalog.listings.length === 0 ? (
-            <div className="surface-panel px-6 py-16 text-center">
-              <p className="text-sm text-muted-foreground">
-                Ainda não há anúncios ativos. Seja o primeiro a vender.
-              </p>
-              <Link
-                href={routes.sell}
-                className={cn(
-                  buttonVariants({ size: "sm" }),
-                  "mt-4 rounded-full",
-                )}
-              >
-                Anunciar agora
-              </Link>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-              {catalog.listings.map((listing) => (
-                <ListingCard key={listing.id} listing={listing} />
-              ))}
-            </div>
-          )}
-        </Container>
-      </section>
+      <Container>
+        <HomeSections
+          sections={home.sections}
+          fallbackListings={fallbackListings}
+        />
+      </Container>
 
       <section className="bg-muted/20 py-14 sm:py-16">
         <Container className="space-y-10">

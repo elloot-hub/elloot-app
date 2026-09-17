@@ -116,6 +116,8 @@ export type Category = {
 
 export type MediaAsset = {
   id: string;
+  /** Public opaque ref used in URLs (MED-YYMM-XXXXXX). */
+  code: string;
   url: string;
   mimeType: string;
   sizeBytes: number;
@@ -184,6 +186,8 @@ export type ListingSummary = {
   media: Array<{ url: string }>;
   /** Total de imagens do anúncio (pode ser > media.length no card). */
   mediaCount?: number;
+  /** Badges de impulsos ativos (ex.: Premium). */
+  visibilityBadges?: string[];
   seller: SellerPublic;
 };
 

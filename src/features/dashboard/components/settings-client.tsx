@@ -82,7 +82,6 @@ export function SettingsClient() {
   const [bio, setBio] = useState("");
   const [pixKey, setPixKey] = useState("");
   const [saving, setSaving] = useState(false);
-  const [avatarBusy, setAvatarBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [confirmKind, setConfirmKind] = useState<ConfirmKind>(null);
@@ -91,6 +90,12 @@ export function SettingsClient() {
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<AuthSessionRow | null>(null);
   const [revoking, setRevoking] = useState(false);
+  /** Local avatar pick — uploaded only on "Salvar". */
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
+  const [pendingAvatarPreview, setPendingAvatarPreview] = useState<string | null>(
+    null,
+  );
+  const [avatarRemoved, setAvatarRemoved] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -103,6 +108,14 @@ export function SettingsClient() {
     setBio(user.bio ?? "");
     setPixKey(user.pixKey ?? "");
   }, [user]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingAvatarPreview?.startsWith("blob:")) {
+        URL.revokeObjectURL(pendingAvatarPreview);
+      }
+    };
+  }, [pendingAvatarPreview]);
 
   useEffect(() => {
     if (!user) return;
@@ -149,6 +162,32 @@ export function SettingsClient() {
     nameLockedUntil.getTime() > Date.now(),
   );
 
+  function clearPendingAvatar() {
+    if (pendingAvatarPreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(pendingAvatarPreview);
+    }
+    setPendingAvatarFile(null);
+    setPendingAvatarPreview(null);
+  }
+
+  function onAvatarFile(file: File | undefined) {
+    if (!file) return;
+    if (!AVATAR_ACCEPT.split(",").includes(file.type)) {
+      setError("Use uma imagem JPEG, PNG ou WebP.");
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setError("A foto deve ter no máximo 5 MB.");
+      return;
+    }
+    setError(null);
+    setSaved(false);
+    clearPendingAvatar();
+    setAvatarRemoved(false);
+    setPendingAvatarFile(file);
+    setPendingAvatarPreview(URL.createObjectURL(file));
+  }
+
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -157,13 +196,29 @@ export function SettingsClient() {
     try {
       const nameUnchanged =
         (name.trim() || null) === (currentUser.name?.trim() || null);
+
+      let avatarUrl: string | null | undefined;
+      if (pendingAvatarFile) {
+        const { asset } = await uploadMedia({
+          file: pendingAvatarFile,
+          purpose: "AVATAR",
+          visibility: "PUBLIC",
+        });
+        avatarUrl = asset.url;
+      } else if (avatarRemoved) {
+        avatarUrl = null;
+      }
+
       await updateMe({
         ...(nameChangeLocked || nameUnchanged
           ? {}
           : { name: name.trim() ? name.trim() : null }),
         bio: bio.trim() ? bio.trim() : null,
         pixKey: pixKey.trim() ? pixKey.trim() : null,
+        ...(avatarUrl !== undefined ? { avatarUrl } : {}),
       });
+      clearPendingAvatar();
+      setAvatarRemoved(false);
       await refreshUser();
       setSaved(true);
     } catch (err) {
@@ -177,58 +232,11 @@ export function SettingsClient() {
     }
   }
 
-  async function persistAvatar(avatarUrl: string | null) {
-    setAvatarBusy(true);
-    setError(null);
-    setSaved(false);
-    try {
-      await updateMe({ avatarUrl });
-      await refreshUser();
-      setSaved(true);
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Não foi possível atualizar a foto.",
-      );
-      throw err;
-    } finally {
-      setAvatarBusy(false);
-    }
-  }
-
-  async function onAvatarFile(file: File | undefined) {
-    if (!file) return;
-    if (!AVATAR_ACCEPT.split(",").includes(file.type)) {
-      setError("Use uma imagem JPEG, PNG ou WebP.");
-      return;
-    }
-    if (file.size > AVATAR_MAX_BYTES) {
-      setError("A foto deve ter no máximo 5 MB.");
-      return;
-    }
-    setAvatarBusy(true);
-    setError(null);
-    try {
-      const { asset } = await uploadMedia({
-        file,
-        purpose: "AVATAR",
-        visibility: "PUBLIC",
-      });
-      await persistAvatar(asset.url);
-    } catch (err) {
-      setAvatarBusy(false);
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Não foi possível enviar a foto.",
-      );
-    }
-  }
-
   async function handleConfirmedAction() {
     if (confirmKind === "remove-avatar") {
-      await persistAvatar(null);
+      clearPendingAvatar();
+      setAvatarRemoved(true);
+      setSaved(false);
       return;
     }
     if (confirmKind === "logout") {
@@ -269,7 +277,7 @@ export function SettingsClient() {
       ? {
         title: "Remover foto de perfil?",
         description:
-          "A foto some dos anúncios, chats e avaliações. Você pode enviar outra a qualquer momento.",
+          "A foto será removida ao salvar o perfil. Você pode enviar outra a qualquer momento.",
         confirmLabel: "Remover foto",
         variant: "destructive" as const,
       }
@@ -330,20 +338,26 @@ export function SettingsClient() {
 
         <div className="flex flex-wrap items-center gap-4">
           <div className="relative">
-            {user.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt=""
-                className="size-20 rounded-full object-cover ring-1 ring-border/60"
-              />
-            ) : (
-              <span className="flex size-20 items-center justify-center rounded-full bg-primary/10 text-xl font-semibold text-primary ring-1 ring-border/60">
-                {initials(user.name, user.email)}
-              </span>
-            )}
+            {(() => {
+              const displayUrl = avatarRemoved
+                ? null
+                : pendingAvatarPreview || user.avatarUrl;
+              return displayUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={displayUrl}
+                  alt=""
+                  className="size-20 rounded-full object-cover ring-1 ring-border/60"
+                />
+              ) : (
+                <span className="flex size-20 items-center justify-center rounded-full bg-primary/10 text-xl font-semibold text-primary ring-1 ring-border/60">
+                  {initials(user.name, user.email)}
+                </span>
+              );
+            })()}
             <button
               type="button"
-              disabled={avatarBusy}
+              disabled={saving}
               onClick={() => fileRef.current?.click()}
               className="absolute right-0 bottom-0 flex size-7 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm hover:bg-muted"
               aria-label="Alterar foto"
@@ -360,7 +374,7 @@ export function SettingsClient() {
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 e.target.value = "";
-                void onAvatarFile(file);
+                onAvatarFile(file);
               }}
             />
             <div className="flex flex-wrap gap-2">
@@ -368,17 +382,18 @@ export function SettingsClient() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={avatarBusy}
+                disabled={saving}
                 onClick={() => fileRef.current?.click()}
               >
-                {avatarBusy ? "Enviando…" : "Trocar foto"}
+                Trocar foto
               </Button>
-              {user.avatarUrl ? (
+              {!avatarRemoved &&
+              (pendingAvatarPreview || user.avatarUrl) ? (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={avatarBusy}
+                  disabled={saving}
                   onClick={() => setConfirmKind("remove-avatar")}
                 >
                   Remover
@@ -386,7 +401,13 @@ export function SettingsClient() {
               ) : null}
             </div>
             <p className="text-xs text-muted-foreground">
-              JPEG, PNG ou WebP · até 5 MB
+              JPEG, PNG ou WebP · até 5 MB · aplica ao salvar o perfil
+              {pendingAvatarFile || avatarRemoved ? (
+                <span className="text-amber-700 dark:text-amber-400">
+                  {" "}
+                  · alteração pendente
+                </span>
+              ) : null}
             </p>
           </div>
         </div>
@@ -455,7 +476,7 @@ export function SettingsClient() {
             </p>
           ) : null}
 
-          <Button type="submit" disabled={saving || avatarBusy}>
+          <Button type="submit" disabled={saving}>
             {saving ? "Salvando…" : "Salvar alterações"}
           </Button>
         </form>
@@ -723,11 +744,7 @@ export function SettingsClient() {
           confirmLabel={confirmCopy.confirmLabel}
           variant={confirmCopy.variant}
           loading={
-            confirmKind === "remove-avatar"
-              ? avatarBusy
-              : confirmKind === "revoke-session"
-                ? revoking
-                : false
+            confirmKind === "revoke-session" ? revoking : false
           }
           onConfirm={handleConfirmedAction}
         />

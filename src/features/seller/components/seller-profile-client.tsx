@@ -25,22 +25,9 @@ export function SellerProfileClientView({ data }: Props) {
 
   return (
     <div className="space-y-6 pb-12">
-      <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Link
-          href={routes.home}
-          className="transition-colors hover:text-foreground"
-        >
-          Início
-        </Link>
-        <ChevronRightIcon className="size-3 opacity-60" />
-        <span>Perfil</span>
-        <ChevronRightIcon className="size-3 opacity-60" />
-        <span className="font-medium text-foreground">{handle}</span>
-      </nav>
-
       <SellerHeader seller={seller} totalListingsCount={listings.length} />
 
-      <SellerReputationBar stats={stats} />
+      {/* <SellerReputationBar stats={stats} /> */}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="min-w-0 space-y-6">
@@ -61,5 +48,5 @@ export function SellerProfileClientView({ data }: Props) {
         <SellerProfileSidebar seller={seller} stats={stats} listingsCount={listings.length} />
       </div>
     </div>
-  );
+  )
 }

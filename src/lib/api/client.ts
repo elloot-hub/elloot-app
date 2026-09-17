@@ -13,6 +13,11 @@ export type ApiRequestOptions = {
   signal?: AbortSignal;
   /** Query string object (GET). */
   query?: Record<string, string | number | undefined | null>;
+  /**
+   * Next.js ISR window (seconds). When set, uses `next.revalidate` instead of
+   * `cache: "no-store"` — for public, cacheable GETs (e.g. home sections).
+   */
+  revalidate?: number;
 };
 
 function buildUrl(path: string, query?: ApiRequestOptions["query"]) {
@@ -38,6 +43,7 @@ export async function apiRequest<T>(
     headers,
     signal,
     query,
+    revalidate,
   } = options;
 
   const res = await fetch(buildUrl(path, query), {
@@ -50,7 +56,9 @@ export async function apiRequest<T>(
       ...headers,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
-    cache: "no-store",
+    ...(typeof revalidate === "number"
+      ? { next: { revalidate } }
+      : { cache: "no-store" as const }),
   });
 
   const text = await res.text();

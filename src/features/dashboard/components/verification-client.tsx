@@ -286,11 +286,35 @@ function KycWizard({
   const [fullName, setFullName] = useState(defaultName);
   const [cpf, setCpf] = useState("");
   const [docType, setDocType] = useState<DocType>("RG");
-  const [assets, setAssets] = useState<
-    Partial<Record<DocKey, { id: string; preview: string }>>
+  const [docs, setDocs] = useState<
+    Partial<Record<DocKey, { file: File; preview: string }>>
   >({});
+  const docsRef = useRef(docs);
+  docsRef.current = docs;
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      for (const doc of Object.values(docsRef.current)) {
+        if (doc?.preview.startsWith("blob:")) URL.revokeObjectURL(doc.preview);
+      }
+    };
+  }, []);
+
+  function setDoc(key: DocKey, next: { file: File; preview: string } | null) {
+    setDocs((prev) => {
+      const prevDoc = prev[key];
+      if (prevDoc?.preview.startsWith("blob:")) {
+        URL.revokeObjectURL(prevDoc.preview);
+      }
+      if (!next) {
+        const { [key]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [key]: next };
+    });
+  }
 
   async function send() {
     if (fullName.trim().length < 3) {
@@ -301,19 +325,36 @@ function KycWizard({
       setError("Informe um CPF válido.");
       return;
     }
-    if (!assets.front || !assets.back || !assets.selfie) {
-      setError("Envie frente, verso e selfie com o documento.");
+    if (!docs.front || !docs.back || !docs.selfie) {
+      setError("Anexe frente, verso e selfie com o documento.");
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
+      const [front, back, selfie] = await Promise.all([
+        uploadMedia({
+          file: docs.front.file,
+          purpose: "GENERAL",
+          visibility: "PRIVATE",
+        }),
+        uploadMedia({
+          file: docs.back.file,
+          purpose: "GENERAL",
+          visibility: "PRIVATE",
+        }),
+        uploadMedia({
+          file: docs.selfie.file,
+          purpose: "GENERAL",
+          visibility: "PRIVATE",
+        }),
+      ]);
       await submitKyc({
         fullName: fullName.trim(),
         documentNumber: cpf.replace(/\D/g, ""),
-        frontAssetId: assets.front.id,
-        backAssetId: assets.back.id,
-        selfieAssetId: assets.selfie.id,
+        frontAssetId: front.asset.id,
+        backAssetId: back.asset.id,
+        selfieAssetId: selfie.asset.id,
       });
       await onDone();
     } catch (err) {
@@ -376,7 +417,8 @@ function KycWizard({
 
       <div className="flex items-start gap-2 rounded-md border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs text-muted-foreground">
         <InfoIcon className="mt-0.5 size-3.5 shrink-0 text-primary" />
-        Saques só podem ir para conta bancária no mesmo CPF.
+        Saques só podem ir para conta bancária no mesmo CPF. As fotos só sobem
+        ao clicar em Enviar solicitação.
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -409,26 +451,23 @@ function KycWizard({
         <DocUpload
           title={`Frente do ${docType}`}
           hint="JPG ou PNG, até 5 MB"
-          preview={assets.front?.preview}
-          onPicked={(asset) =>
-            setAssets((prev) => ({ ...prev, front: asset }))
-          }
+          preview={docs.front?.preview}
+          disabled={submitting}
+          onPicked={(picked) => setDoc("front", picked)}
         />
         <DocUpload
           title={`Verso do ${docType}`}
           hint="Lado com CPF / dados"
-          preview={assets.back?.preview}
-          onPicked={(asset) =>
-            setAssets((prev) => ({ ...prev, back: asset }))
-          }
+          preview={docs.back?.preview}
+          disabled={submitting}
+          onPicked={(picked) => setDoc("back", picked)}
         />
         <DocUpload
           title="Selfie com o documento"
           hint="Rosto e documento visíveis"
-          preview={assets.selfie?.preview}
-          onPicked={(asset) =>
-            setAssets((prev) => ({ ...prev, selfie: asset }))
-          }
+          preview={docs.selfie?.preview}
+          disabled={submitting}
+          onPicked={(picked) => setDoc("selfie", picked)}
         />
       </div>
 
@@ -459,18 +498,19 @@ function DocUpload({
   title,
   hint,
   preview,
+  disabled,
   onPicked,
 }: {
   title: string;
   hint: string;
   preview?: string;
-  onPicked: (asset: { id: string; preview: string }) => void;
+  disabled?: boolean;
+  onPicked: (asset: { file: File; preview: string }) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function onFile(file: File | undefined) {
+  function onFile(file: File | undefined) {
     if (!file) return;
     if (!ACCEPT.split(",").includes(file.type)) {
       setError("Use JPEG, PNG ou WebP.");
@@ -480,20 +520,8 @@ function DocUpload({
       setError("Máximo 5 MB.");
       return;
     }
-    setBusy(true);
     setError(null);
-    try {
-      const { asset } = await uploadMedia({
-        file,
-        purpose: "GENERAL",
-        visibility: "PRIVATE",
-      });
-      onPicked({ id: asset.id, preview: asset.url });
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Falha no upload.");
-    } finally {
-      setBusy(false);
-    }
+    onPicked({ file, preview: URL.createObjectURL(file) });
   }
 
   return (
@@ -501,7 +529,7 @@ function DocUpload({
       <p className="text-xs font-semibold">{title}</p>
       <button
         type="button"
-        disabled={busy}
+        disabled={disabled}
         onClick={() => inputRef.current?.click()}
         className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-md border border-dashed border-border/70 bg-muted/20 px-2 text-center"
       >
@@ -512,7 +540,7 @@ function DocUpload({
           <>
             <UploadIcon className="size-5 text-muted-foreground" />
             <span className="text-[11px] text-muted-foreground">
-              {busy ? "Enviando…" : "Clique para enviar"}
+              Clique para anexar
             </span>
             <span className="text-[10px] text-muted-foreground/80">{hint}</span>
           </>
@@ -526,14 +554,14 @@ function DocUpload({
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = "";
-          void onFile(file);
+          onFile(file);
         }}
       />
       {error ? <p className="text-[11px] text-destructive">{error}</p> : null}
       {preview ? (
         <p className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
           <FileImageIcon className="size-3" />
-          Foto anexada
+          Foto anexada (envia ao confirmar)
         </p>
       ) : null}
     </div>

@@ -41,10 +41,10 @@ export function SellerReputationBar({ stats }: Props) {
       {items.map((item) => (
         <div
           key={item.key}
-          className="rounded-xl border border-border/60 bg-card/50 px-4 py-4"
+          className="rounded-md border border-border/60 bg-card/50 px-4 py-4"
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+            <span className="text-sm font-medium text-muted-foreground">
               {item.label}
             </span>
             <span

@@ -21,6 +21,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { useAuth } from "@/features/auth/context";
 import { fetchListingCategories, fetchProductTypes, type ProductTypeOption, } from "@/features/catalog/api";
 import { createListing, fetchListing, reorderListingOffers, updateListing } from "@/features/listings/api";
+import { ListingVisibilityPanel } from "@/features/visibility/components/listing-visibility-panel";
 import { SellStepper, type SellStepId, } from "@/features/listings/components/sell-stepper";
 import {
   SellReviewPanel,
@@ -1133,38 +1134,28 @@ export function SellPageContent({
           <Panel>
             <PanelTitle>Visibilidade do seu anúncio</PanelTitle>
             <PanelDescription>
-              Escolha o alcance. As taxas entram no algoritmo de destaque —
-              você pode ajustar isso depois.
+              {isEdit
+                ? "Compre impulsos com saldo da carteira. O anúncio entra nas seções da home ligadas ao produto."
+                : "Depois de publicar o anúncio, você poderá impulsionar com produtos de visibilidade na edição."}
             </PanelDescription>
-            <div className="grid gap-3 pt-4 sm:grid-cols-3">
-              {REACH_PLANS.map((plan) => (
-                <button
-                  key={plan.id}
-                  type="button"
-                  onClick={() => setReach(plan.id)}
-                  className={cn(
-                    "relative flex flex-col cursor-pointer gap-2 rounded-md border p-4 text-left transition-colors",
-                    reach === plan.id
-                      ? "border-primary/50 bg-primary/10 shadow-[0_0_0_1px_hsl(217_91%_54%/0.25)]"
-                      : "border-border/60 bg-muted/15 hover:bg-muted/30",
-                  )}
-                >
-                  {plan.recommended ? (
-                    <span className="absolute -top-2 -right-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
-                      Recomendado
-                    </span>
-                  ) : null}
-                  <span className="font-heading text-sm font-semibold">
-                    {plan.title}
-                  </span>
-                  <span className="text-sm font-medium text-primary">
-                    {plan.fee}
-                  </span>
-                  <span className="text-xs text-muted-foreground text-pretty">
-                    {plan.description}
-                  </span>
-                </button>
-              ))}
+            <div className="pt-4">
+              {isEdit && listingId ? (
+                <ListingVisibilityPanel
+                  listingId={listingId}
+                  listingStatus={editBaseline?.status ?? "DRAFT"}
+                  categoryId={
+                    editBaseline?.categoryId ??
+                    categoryPath[categoryPath.length - 1] ??
+                    null
+                  }
+                />
+              ) : (
+                <p className="rounded-md border border-border/60 bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
+                  A taxa de venda da plataforma continua separada. Impulsos
+                  (destaque na home) são produtos avulsos configurados no
+                  admin — disponíveis após o anúncio ficar ativo.
+                </p>
+              )}
             </div>
           </Panel>
 

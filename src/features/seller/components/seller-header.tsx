@@ -2,15 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {
-  BadgeCheckIcon,
-  ClockIcon,
-  SettingsIcon,
-  Share2Icon,
-  SparklesIcon,
-  StarIcon,
-  StoreIcon,
-} from "lucide-react";
+import { BadgeCheckIcon, ClockIcon, SettingsIcon, Share2Icon, SparklesIcon, StarIcon, StoreIcon, } from "lucide-react";
 import { useAuth } from "@/features/auth/context";
 import type { SellerPublic } from "@/types/api";
 import { buttonVariants } from "@/components/ui/button";
@@ -41,7 +33,7 @@ function formatMemberSince(createdAt?: string) {
   }
   const years = Math.floor(months / 12);
   return years === 1 ? "Membro há 1 ano" : `Membro há ${years} anos`;
-}
+};
 
 function formatLastSeen(lastSeenAt?: string | null, isOnline?: boolean) {
   if (isOnline) return "Online agora";
@@ -56,31 +48,30 @@ function formatLastSeen(lastSeenAt?: string | null, isOnline?: boolean) {
     return hours === 1 ? "Visto há 1 hora" : `Visto há ${hours} horas`;
   const days = Math.floor(hours / 24);
   return days === 1 ? "Visto há 1 dia" : `Visto há ${days} dias`;
-}
+};
 
 function sellerInitial(name?: string | null) {
   const trimmed = name?.trim();
   if (!trimmed) return "?";
   return trimmed.charAt(0).toUpperCase();
-}
+};
 
 export function SellerHeader({ seller, totalListingsCount }: Props) {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
   const username = seller.username?.trim() || null;
   const name = seller.name?.trim() || username || "Usuário";
-  const bio =
-    seller.bio?.trim() ||
-    `Perfil público na Elloot, com reputação, avaliações recebidas e ${totalListingsCount} anúncio${totalListingsCount === 1 ? "" : "s"} ativo${totalListingsCount === 1 ? "" : "s"}.`;
+  const bio = seller.bio?.trim() || `Perfil público na Elloot, com reputação, avaliações recebidas e ${totalListingsCount} anúncio${totalListingsCount === 1 ? "" : "s"} ativo${totalListingsCount === 1 ? "" : "s"}.`;
   const isOwnProfile = Boolean(user?.id && user.id === seller.id);
+  const isOnline = seller.isOnline ?? false;
+  const ratingAvg = seller.stats?.ratingAvg;
+  const ratingCount = seller.stats?.ratingCount ?? 0;
+
   const verifications = seller.verifications ?? {
     email: false,
     phone: false,
     documents: false,
   };
-  const isOnline = seller.isOnline ?? false;
-  const ratingAvg = seller.stats?.ratingAvg;
-  const ratingCount = seller.stats?.ratingCount ?? 0;
 
   const handleShare = () => {
     if (typeof window === "undefined") return;
@@ -90,16 +81,15 @@ export function SellerHeader({ seller, totalListingsCount }: Props) {
   };
 
   return (
-    <div className="rounded-xl border border-border/60 bg-card/50 p-4 sm:p-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="rounded-md border border-border/60 bg-card/50 p-4 sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row items-center justify-between">
         <div className="flex min-w-0 flex-1 gap-4">
           <div className="relative shrink-0">
             {seller.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={seller.avatarUrl}
                 alt={name}
-                className="size-16 rounded-xl border border-border/60 bg-card object-cover sm:size-20"
+                className="size-16 rounded-sm border border-border/60 bg-card object-cover select-none pointer-events-none sm:size-20"
               />
             ) : (
               <div className="flex size-16 items-center justify-center rounded-xl border border-border/60 bg-primary/15 text-2xl font-semibold text-primary sm:size-20">
@@ -110,9 +100,10 @@ export function SellerHeader({ seller, totalListingsCount }: Props) {
 
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate font-heading text-2xl font-semibold tracking-tight text-foreground">
+              <h1 className="truncate font-heading text-2xl font-semibold text-foreground">
                 {username || name}
               </h1>
+
               {verifications.documents ? (
                 <span className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                   <BadgeCheckIcon className="size-3.5" />
@@ -123,16 +114,18 @@ export function SellerHeader({ seller, totalListingsCount }: Props) {
                   Não verificado
                 </span>
               )}
+
               <span
                 className={cn(
-                  "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase",
+                  "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
                   isOnline
                     ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                     : "bg-muted text-muted-foreground",
                 )}
               >
-                {isOnline ? "ON" : "OFF"}
+                {isOnline ? "online" : "offline"}
               </span>
+
               {(seller.reputationScore ?? 0) > 0 ? (
                 <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
                   <SparklesIcon className="size-3" />
@@ -141,24 +134,19 @@ export function SellerHeader({ seller, totalListingsCount }: Props) {
               ) : null}
             </div>
 
-            {username && name !== username ? (
-              <p className="text-sm text-muted-foreground">{name}</p>
-            ) : null}
-
             <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
               {bio}
             </p>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+              {/* <span className="inline-flex items-center gap-1 font-semibold text-foreground">
                 <StarIcon className="size-3.5 fill-amber-400 text-amber-400" />
                 {ratingAvg != null ? ratingAvg.toFixed(1) : "—"}
                 <span className="font-normal text-muted-foreground">
                   ({ratingCount}{" "}
                   {ratingCount === 1 ? "avaliação" : "avaliações"})
                 </span>
-              </span>
-              <span aria-hidden>•</span>
+              </span> */}
               <span className="inline-flex items-center gap-1">
                 <ClockIcon className="size-3.5" />
                 {formatMemberSince(seller.createdAt)}

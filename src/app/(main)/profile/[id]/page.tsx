@@ -14,13 +14,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   try {
     const data = await fetchSellerProfileData(id);
-    const handle =
-      data.seller.username?.trim() ||
-      data.seller.name?.trim() ||
-      "Perfil";
+    const handle = data.seller.username?.trim() || data.seller.name?.trim() || "Perfil";
     const rating = data.seller.stats?.ratingAvg;
-    const ratingLabel =
-      rating != null ? ` · ${rating.toFixed(1)}★` : "";
+    const ratingLabel = rating != null ? ` · ${rating.toFixed(1)}★` : "";
     return {
       title: `${handle}${ratingLabel} | Elloot`,
       description:
@@ -32,8 +28,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return {
       title: "Perfil | Elloot",
     };
-  }
-}
+  };
+};
 
 export default async function ProfilePage({ params }: Props) {
   const { id: param } = await params;
@@ -47,16 +43,16 @@ export default async function ProfilePage({ params }: Props) {
       notFound();
     }
     throw err;
-  }
+  };
 
   const username = data.seller.username?.trim();
   if (username && param.toLowerCase() !== username.toLowerCase()) {
     redirect(routes.profile(username));
-  }
+  };
 
   return (
     <Container className="py-8 sm:py-10">
       <SellerProfileClientView data={data} />
     </Container>
   );
-}
+};

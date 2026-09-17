@@ -1,12 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  CheckCircle2Icon,
-  ClockIcon,
-  MessageSquareHeartIcon,
-  StarIcon,
-} from "lucide-react";
+import { CheckCircle2Icon, ClockIcon, MessageSquareHeartIcon, StarIcon, } from "lucide-react";
 import type { ProfileReviewItem } from "../types";
 import type { ListingProductType } from "@/types/api";
 import { formatRelativeTime } from "@/features/listings/components/qa-utils";
@@ -29,57 +24,19 @@ const CLASS_LABEL: Record<ListingProductType, string> = {
   OUTROS: "Outros",
 };
 
-export function SellerReviewsFeed({
-  reviews,
-  sellerName,
-  ratingAvg,
-  ratingCount,
-  reviewsPerHour,
-  reviewsLast24h = 0,
-}: Props) {
+export function SellerReviewsFeed({ reviews, sellerName, ratingAvg, ratingCount, reviewsPerHour, reviewsLast24h = 0, }: Props) {
   const [filterRating, setFilterRating] = useState<number | "ALL">("ALL");
-
-  const filteredReviews = reviews.filter((r) =>
-    filterRating === "ALL" ? true : r.rating === filterRating,
-  );
+  const filteredReviews = reviews.filter((r) => filterRating === "ALL" ? true : r.rating === filterRating,);
 
   return (
     <section className="space-y-4 rounded-md border border-border/60 bg-card/40 p-4 sm:p-6">
-      <div className="flex flex-col gap-3 border-b border-border/50 pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
-            <MessageSquareHeartIcon className="size-5 text-amber-500" />
-            Avaliações recentes
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Opiniões de compradores verificados sobre {sellerName}.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 rounded-md border border-border/60 bg-background/40 p-2">
-          <div className="px-2 text-center">
-            <div className="flex items-center gap-1 text-lg font-bold text-amber-500 tabular-nums">
-              <StarIcon className="size-4 fill-amber-400 text-amber-400" />
-              {ratingCount > 0 ? ratingAvg.toFixed(1) : "—"}
-            </div>
-            <span className="text-[10px] text-muted-foreground">
-              ({ratingCount} total)
-            </span>
-          </div>
-
-          <div className="h-8 w-px bg-border/60" />
-
-          <div className="px-2 text-center">
-            <div className="flex items-center gap-1 text-sm font-bold text-foreground tabular-nums">
-              <ClockIcon className="size-3.5 text-muted-foreground" />
-              {reviewsLast24h}
-            </div>
-            <span className="text-[10px] text-muted-foreground">
-              nas últimas 24h
-              {reviewsPerHour > 0 ? ` · ${reviewsPerHour}/h` : ""}
-            </span>
-          </div>
-        </div>
+      <div className="flex flex-col">
+        <h2 className="flex items-center gap-2 text-lg font-medium text-foreground">
+          Avaliações recentes
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          Opiniões de compradores sobre o vendedor {sellerName}.
+        </p>
       </div>
 
       {reviews.length > 0 ? (
@@ -87,6 +44,7 @@ export function SellerReviewsFeed({
           <span className="text-xs font-medium text-muted-foreground">
             Filtrar:
           </span>
+          
           <button
             type="button"
             onClick={() => setFilterRating("ALL")}
@@ -136,7 +94,6 @@ export function SellerReviewsFeed({
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2.5">
                     {item.buyerAvatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={item.buyerAvatar}
                         alt=""
@@ -202,13 +159,13 @@ export function SellerReviewsFeed({
                   </span>
                 </div>
               </div>
-            );
+            )
           })}
         </div>
       )}
     </section>
   );
-}
+};
 
 /** @deprecated Prefer SellerReviewsFeed */
 export const SellerHourlyReviews = SellerReviewsFeed;

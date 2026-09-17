@@ -189,7 +189,7 @@ function ListingPagePreview({ input, categoryBreadcrumb, productTypes, }: { inpu
   );
 };
 
-export function SellReviewPanel({ categoryBreadcrumb, productTypes, reach, onGoTo, ...input }: SellReviewPanelProps) {
+export function SellReviewPanel({ categoryBreadcrumb, productTypes, reach: _reach, onGoTo, ...input }: SellReviewPanelProps) {
   const [mobileTab, setMobileTab] = useState<"summary" | "preview">("summary");
   const [previewMode, setPreviewMode] = useState<"card" | "page">("page");
 
@@ -202,7 +202,6 @@ export function SellReviewPanel({ categoryBreadcrumb, productTypes, reach, onGoT
   const blocking = hasBlockingReviewIssues(checklist);
   const errorCount = checklist.filter((i) => i.severity === "error").length;
   const warnCount = checklist.filter((i) => i.severity === "warn").length;
-  const reachPlan = REACH_PLANS.find((p) => p.id === reach);
   const needsModeration = moderationChanges.length > 0;
 
   const summaryContent = (
@@ -308,9 +307,11 @@ export function SellReviewPanel({ categoryBreadcrumb, productTypes, reach, onGoT
         </div>
         <dl className="grid gap-2 text-sm">
           <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Alcance</dt>
+            <dt className="text-muted-foreground">Visibilidade</dt>
             <dd className="font-medium text-right">
-              {reachPlan?.title ?? "—"} ({reachPlan?.fee ?? "—"})
+              {input.isEdit
+                ? "Impulsos na etapa Anúncio"
+                : "Após publicar (carteira)"}
             </dd>
           </div>
           <div className="flex justify-between gap-2">

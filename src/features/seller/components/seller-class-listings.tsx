@@ -1,17 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  CoinsIcon,
-  GridIcon,
-  LayersIcon,
-  PackageIcon,
-  SearchIcon,
-  SparklesIcon,
-  StoreIcon,
-  SwordsIcon,
-  WrenchIcon,
-} from "lucide-react";
+import { CoinsIcon, GridIcon, LayersIcon, PackageIcon, SearchIcon, SparklesIcon, StoreIcon, SwordsIcon, WrenchIcon, } from "lucide-react";
 import { ListingCard } from "@/features/catalog/components/listing-card";
 import type { ListingProductType, ListingSummary } from "@/types/api";
 import type { SellerClassFilter } from "../types";
@@ -22,10 +12,7 @@ type Props = {
   sellerName: string;
 };
 
-const CLASS_CONFIG: Record<
-  ListingProductType,
-  { label: string; icon: React.ReactNode; color: string; badgeBg: string }
-> = {
+const CLASS_CONFIG: Record<ListingProductType, { label: string; icon: React.ReactNode; color: string; badgeBg: string }> = {
   CONTA: {
     label: "Contas & Personagens",
     icon: <SwordsIcon className="size-4 text-violet-400" />,
@@ -63,7 +50,6 @@ export function SellerClassListings({ listings, sellerName }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"SECTIONS" | "GRID">("SECTIONS");
 
-  // Calculate counts per class
   const classCounts = useMemo(() => {
     const counts: Record<ListingProductType, number> = {
       CONTA: 0,
@@ -84,14 +70,12 @@ export function SellerClassListings({ listings, sellerName }: Props) {
     return counts;
   }, [listings]);
 
-  // Active classes seller actually sells
   const activeClasses = useMemo(() => {
     return (Object.keys(classCounts) as ListingProductType[]).filter(
       (cls) => classCounts[cls] > 0,
     );
   }, [classCounts]);
 
-  // Filtered listings based on search & class tab
   const filteredListings = useMemo(() => {
     return listings.filter((item) => {
       const matchesSearch =
@@ -107,7 +91,6 @@ export function SellerClassListings({ listings, sellerName }: Props) {
     });
   }, [listings, searchTerm, selectedClass]);
 
-  // Group listings by class for SECTIONS view mode
   const listingsByClass = useMemo(() => {
     const grouped: Record<ListingProductType, ListingSummary[]> = {
       CONTA: [],
@@ -130,12 +113,10 @@ export function SellerClassListings({ listings, sellerName }: Props) {
   }, [filteredListings]);
 
   return (
-    <section className="space-y-5">
-      {/* Header & Search Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <section className="space-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 pb-3">
         <div>
           <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground">
-            <StoreIcon className="size-5 text-primary" />
             Anúncios à venda
           </h2>
           <p className="text-xs text-muted-foreground">
@@ -145,7 +126,6 @@ export function SellerClassListings({ listings, sellerName }: Props) {
           </p>
         </div>
 
-        {/* Controls: Search + View Mode */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1 sm:w-64">
             <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -157,80 +137,9 @@ export function SellerClassListings({ listings, sellerName }: Props) {
               className="h-9 w-full rounded-md border border-border/60 bg-card/40 pl-9 pr-3 text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </div>
-
-          <div className="flex items-center rounded-md border border-border/60 bg-card/40 p-0.5">
-            <button
-              onClick={() => setViewMode("SECTIONS")}
-              className={cn(
-                "flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors",
-                viewMode === "SECTIONS"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              title="Visualizar separado por Classe/Seção"
-            >
-              <LayersIcon className="size-3.5" />
-              <span className="hidden sm:inline">Classes</span>
-            </button>
-            <button
-              onClick={() => setViewMode("GRID")}
-              className={cn(
-                "flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors",
-                viewMode === "GRID"
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              title="Visualizar em Grade Total"
-            >
-              <GridIcon className="size-3.5" />
-              <span className="hidden sm:inline">Grade</span>
-            </button>
-          </div>
         </div>
       </div>
 
-      {/* Filter Tabs by Class */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-        <button
-          onClick={() => setSelectedClass("ALL")}
-          className={cn(
-            "flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all",
-            selectedClass === "ALL"
-              ? "border-primary bg-primary/15 text-primary shadow-sm"
-              : "border-border/60 bg-card/40 text-muted-foreground hover:bg-card/80 hover:text-foreground",
-          )}
-        >
-          <span>Todas as Classes</span>
-          <span className="rounded-full bg-background/80 px-1.5 py-0.2 text-[10px] tabular-nums font-bold">
-            {listings.length}
-          </span>
-        </button>
-
-        {activeClasses.map((cls) => {
-          const cfg = CLASS_CONFIG[cls];
-          const count = classCounts[cls];
-          return (
-            <button
-              key={cls}
-              onClick={() => setSelectedClass(cls)}
-              className={cn(
-                "flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all",
-                selectedClass === cls
-                  ? "border-primary bg-primary/15 text-primary shadow-sm"
-                  : "border-border/60 bg-card/40 text-muted-foreground hover:bg-card/80 hover:text-foreground",
-              )}
-            >
-              {cfg.icon}
-              <span>{cfg.label}</span>
-              <span className="rounded-full bg-background/80 px-1.5 py-0.2 text-[10px] tabular-nums font-bold">
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Listings View */}
       {listings.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-card/30 px-6 py-14 text-center">
           <PackageIcon className="mb-3 size-10 text-muted-foreground/50" />
@@ -242,7 +151,7 @@ export function SellerClassListings({ listings, sellerName }: Props) {
           </p>
         </div>
       ) : filteredListings.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/60 bg-card/30 px-6 py-10 text-center">
+        <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-border/60 bg-card/30 px-6 py-10 text-center">
           <SearchIcon className="mb-2 size-8 text-muted-foreground/50" />
           <h3 className="text-base font-semibold text-foreground">
             Nenhum resultado
@@ -252,7 +161,6 @@ export function SellerClassListings({ listings, sellerName }: Props) {
           </p>
         </div>
       ) : viewMode === "SECTIONS" && selectedClass === "ALL" ? (
-        /* SECTIONS VIEW MODE (Separado por Classe) */
         <div className="space-y-8">
           {activeClasses.map((cls) => {
             const items = listingsByClass[cls];
@@ -261,38 +169,17 @@ export function SellerClassListings({ listings, sellerName }: Props) {
 
             return (
               <div key={cls} className="space-y-3">
-                <div className="flex items-center justify-between border-b border-border/60 pb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="rounded-md bg-background p-1.5 border border-border/50">
-                      {cfg.icon}
-                    </div>
-                    <h3 className="text-base font-bold text-foreground">
-                      {cfg.label}
-                    </h3>
-                    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold border", cfg.badgeBg)}>
-                      {items.length} {items.length === 1 ? "anúncio" : "anúncios"}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setSelectedClass(cls)}
-                    className="text-xs font-semibold text-primary hover:underline"
-                  >
-                    Ver somente esta classe →
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {items.map((listing) => (
                     <ListingCard key={listing.id} listing={listing} />
                   ))}
                 </div>
               </div>
-            );
+            )
           })}
         </div>
       ) : (
-        /* GRID VIEW MODE */
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {filteredListings.map((listing) => (
             <ListingCard key={listing.id} listing={listing} />
           ))}
@@ -300,4 +187,4 @@ export function SellerClassListings({ listings, sellerName }: Props) {
       )}
     </section>
   );
-}
+};

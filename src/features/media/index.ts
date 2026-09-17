@@ -4,7 +4,8 @@
  * STATUS: ativo (client helper)
  *
  * Onde mexer: `api.ts` — upload via `/api/media`.
- * Usado pelo formulário de `/sell` (upload com purpose LISTING).
+ * Cliente: `/sell` (LISTING), settings (AVATAR), verification (KYC) —
+ * todos enviam só no Salvar/Enviar (preview local blob antes disso).
  */
 
 export * from "./api";

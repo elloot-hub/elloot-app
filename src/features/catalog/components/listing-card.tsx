@@ -159,7 +159,15 @@ export function ListingCard({ listing, preview = false }: Props) {
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-black/20" />
 
-        <div className="absolute top-2 left-2 z-[1] flex items-center gap-1">
+        <div className="absolute top-2 left-2 z-[1] flex flex-wrap items-center gap-1">
+          {(listing.visibilityBadges ?? []).slice(0, 2).map((badge) => (
+            <span
+              key={badge}
+              className="rounded-sm bg-amber-500/95 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm"
+            >
+              {badge}
+            </span>
+          ))}
           {isAuto ? (
             <StatusTip
               label="Entrega automática"
