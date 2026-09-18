@@ -204,6 +204,17 @@ export type ListingDetail = {
   listingModel: ListingModel;
   deliveryMode?: DeliveryMode;
   status: ListingStatus;
+  reachPlanId?: string | null;
+  feeBps?: number | null;
+  reachPriority?: number;
+  reachPlan?: {
+    id: string;
+    code: string;
+    title: string;
+    feeBps: number;
+    priority: number;
+    barLevel: number;
+  } | null;
   createdAt: string;
   updatedAt: string;
   category: ListingCategoryRef;

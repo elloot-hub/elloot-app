@@ -7,7 +7,7 @@ import { FaTruckFast } from "react-icons/fa6";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ListingCard } from "@/features/catalog/components/listing-card";
-import type { ProductTypeOption } from "@/features/catalog/api";
+import type { ProductTypeOption, ReachPlanOption } from "@/features/catalog/api";
 import { getCategoryVisual } from "@/features/catalog/category-visuals";
 import { listingVertical } from "@/features/catalog/listing-category";
 import type { SellStepId } from "@/features/listings/components/sell-stepper";
@@ -15,14 +15,6 @@ import { buildPreviewListing, computeEditModerationChanges, computeReviewCheckli
 import { formatBRLFromCents } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ListingProductType } from "@/types/api";
-
-type ReachId = "min" | "max" | "mid";
-
-const REACH_PLANS: Array<{ id: ReachId; title: string; fee: string }> = [
-  { id: "min", title: "Alcance mínimo", fee: "6%" },
-  { id: "max", title: "Alcance máximo", fee: "12%" },
-  { id: "mid", title: "Alcance médio", fee: "8%" },
-];
 
 const PRODUCT_TYPE_LABEL: Record<ListingProductType, string> = {
   CONTA: "Conta",
@@ -35,7 +27,7 @@ const PRODUCT_TYPE_LABEL: Record<ListingProductType, string> = {
 type SellReviewPanelProps = SellReviewInput & {
   categoryBreadcrumb: string;
   productTypes: ProductTypeOption[];
-  reach: ReachId;
+  reachPlan: ReachPlanOption | null;
   onGoTo: (step: SellStepId) => void;
 };
 
@@ -189,7 +181,7 @@ function ListingPagePreview({ input, categoryBreadcrumb, productTypes, }: { inpu
   );
 };
 
-export function SellReviewPanel({ categoryBreadcrumb, productTypes, reach: _reach, onGoTo, ...input }: SellReviewPanelProps) {
+export function SellReviewPanel({ categoryBreadcrumb, productTypes, reachPlan, onGoTo, ...input }: SellReviewPanelProps) {
   const [mobileTab, setMobileTab] = useState<"summary" | "preview">("summary");
   const [previewMode, setPreviewMode] = useState<"card" | "page">("page");
 
@@ -307,11 +299,11 @@ export function SellReviewPanel({ categoryBreadcrumb, productTypes, reach: _reac
         </div>
         <dl className="grid gap-2 text-sm">
           <div className="flex justify-between gap-2">
-            <dt className="text-muted-foreground">Visibilidade</dt>
+            <dt className="text-muted-foreground">Alcance</dt>
             <dd className="font-medium text-right">
-              {input.isEdit
-                ? "Impulsos na etapa Anúncio"
-                : "Após publicar (carteira)"}
+              {reachPlan
+                ? `${reachPlan.title} · ${reachPlan.feePercent}%`
+                : "Taxa padrão da plataforma"}
             </dd>
           </div>
           <div className="flex justify-between gap-2">

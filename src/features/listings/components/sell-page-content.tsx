@@ -19,7 +19,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
 import { useAuth } from "@/features/auth/context";
-import { fetchListingCategories, fetchProductTypes, type ProductTypeOption, } from "@/features/catalog/api";
+import { fetchListingCategories, fetchProductTypes, fetchReachPlans, type ProductTypeOption, type ReachPlanOption, } from "@/features/catalog/api";
 import { createListing, fetchListing, reorderListingOffers, updateListing } from "@/features/listings/api";
 import { ListingVisibilityPanel } from "@/features/visibility/components/listing-visibility-panel";
 import { SellStepper, type SellStepId, } from "@/features/listings/components/sell-stepper";
@@ -117,29 +117,8 @@ function inferProductType(
   return null;
 }
 
-const REACH_PLANS = [
-  {
-    id: "min" as const,
-    title: "Alcance mínimo",
-    fee: "6% por venda",
-    description: "Aparece nas listagens padrão da categoria.",
-  },
-  {
-    id: "max" as const,
-    title: "Alcance máximo",
-    fee: "12% por venda",
-    description: "Prioridade no ranking e destaque visual.",
-    recommended: true,
-  },
-  {
-    id: "mid" as const,
-    title: "Alcance médio",
-    fee: "8% por venda",
-    description: "Mais relevância em buscas e filtros.",
-  },
-];
+const REACH_FALLBACK: ReachPlanOption[] = [];
 
-type ReachId = (typeof REACH_PLANS)[number]["id"];
 type DeliveryMode = "manual" | "auto";
 type AdKind = "simple" | "dynamic";
 
@@ -347,7 +326,8 @@ export function SellPageContent({
   const [description, setDescription] = useState("");
   const [categoryPath, setCategoryPath] = useState<string[]>([]);
   const [productType, setProductType] = useState<ListingProductType | "">("");
-  const [reach, setReach] = useState<ReachId>("min");
+  const [reachPlanId, setReachPlanId] = useState<string>("");
+  const [reachPlans, setReachPlans] = useState<ReachPlanOption[]>(REACH_FALLBACK);
 
   const [adKind, setAdKind] = useState<AdKind>("simple");
   const [price, setPrice] = useState("");
@@ -448,6 +428,23 @@ export function SellPageContent({
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    void fetchReachPlans().then((res) => {
+      if (cancelled) return;
+      const plans = res.items;
+      setReachPlans(plans);
+      setReachPlanId((prev) => {
+        if (prev && plans.some((p) => p.id === prev)) return prev;
+        const recommended = plans.find((p) => p.recommended);
+        return recommended?.id ?? plans[0]?.id ?? "";
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isEdit || !listingId) return;
     let cancelled = false;
     setInitialLoading(true);
@@ -468,6 +465,9 @@ export function SellPageContent({
         setImages(form.images);
         setCoverId(form.coverId);
         setPendingCategoryId(form.categoryId);
+        if (listing.reachPlanId) {
+          setReachPlanId(listing.reachPlanId);
+        }
         setEditBaseline({
           status: listing.status,
           categoryId: listing.category.id,
@@ -728,6 +728,9 @@ export function SellPageContent({
     if (!productType && !inferredProductType) {
       return "Selecione o que você está vendendo.";
     }
+    if (reachPlans.length > 0 && !reachPlanId) {
+      return "Selecione o plano de alcance do anúncio.";
+    }
     return null;
   }
 
@@ -932,6 +935,7 @@ export function SellPageContent({
           title: title.trim(),
           description: description.trim(),
           productType: productType || null,
+          ...(reachPlanId ? { reachPlanId } : {}),
           ...(adKind === "simple"
             ? {
               priceCents: parsePriceToCents(price)!,
@@ -956,6 +960,7 @@ export function SellPageContent({
         description: description.trim(),
         listingModel,
         productType: productType || null,
+        reachPlanId: reachPlanId || undefined,
         deliveryMode:
           adKind === "simple"
             ? delivery === "auto"
@@ -1144,26 +1149,45 @@ export function SellPageContent({
           <Panel>
             <PanelTitle>Visibilidade do seu anúncio</PanelTitle>
             <PanelDescription>
-              {isEdit
-                ? "Compre impulsos com saldo da carteira. O anúncio entra nas seções da home ligadas ao produto."
-                : "Depois de publicar o anúncio, você poderá impulsionar com produtos de visibilidade na edição."}
+              Quanto maior o nível, mais o seu anúncio aparece para compradores.
+              Você só paga a porcentagem quando vender — sem taxa fixa.
             </PanelDescription>
-            <div className="pt-4">
-              {isEdit && listingId ? (
-                <ListingVisibilityPanel
-                  listingId={listingId}
-                  listingStatus={editBaseline?.status ?? "DRAFT"}
-                  categoryId={
-                    editBaseline?.categoryId ??
-                    categoryPath[categoryPath.length - 1] ??
-                    null
-                  }
-                />
+            <div className="space-y-4 pt-4">
+              {reachPlans.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {reachPlans.map((plan) => (
+                    <ReachPlanCard
+                      key={plan.id}
+                      plan={plan}
+                      selected={reachPlanId === plan.id}
+                      onSelect={() => setReachPlanId(plan.id)}
+                    />
+                  ))}
+                </div>
               ) : (
                 <p className="rounded-md border border-border/60 bg-muted/20 px-4 py-5 text-sm text-muted-foreground">
-                  A taxa de venda da plataforma continua separada. Impulsos
-                  (destaque na home) são produtos avulsos configurados no
-                  admin — disponíveis após o anúncio ficar ativo.
+                  Nenhum plano de alcance configurado no momento. A taxa padrão
+                  da plataforma será aplicada.
+                </p>
+              )}
+
+              {isEdit && listingId ? (
+                <div className="border-t border-border/50 pt-4">
+                  <p className="mb-3 text-sm font-medium">Impulsos (destaque)</p>
+                  <ListingVisibilityPanel
+                    listingId={listingId}
+                    listingStatus={editBaseline?.status ?? "DRAFT"}
+                    categoryId={
+                      editBaseline?.categoryId ??
+                      categoryPath[categoryPath.length - 1] ??
+                      null
+                    }
+                  />
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Impulsos avulsos (destaque na home) ficam disponíveis depois que
+                  o anúncio estiver ativo.
                 </p>
               )}
             </div>
@@ -1684,7 +1708,7 @@ export function SellPageContent({
                 {...reviewInput}
                 categoryBreadcrumb={categoryBreadcrumb}
                 productTypes={productTypes}
-                reach={reach}
+                reachPlan={reachPlans.find((p) => p.id === reachPlanId) ?? null}
                 onGoTo={goTo}
               />
             </div>
@@ -1739,6 +1763,72 @@ function PanelDescription({ children }: { children: React.ReactNode }) {
     </p>
   );
 };
+
+function ReachPlanCard({
+  plan,
+  selected,
+  onSelect,
+}: {
+  plan: ReachPlanOption;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const bars = Math.min(4, Math.max(1, plan.barLevel));
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "relative flex flex-col gap-3 rounded-md border p-4 text-left transition-colors",
+        selected
+          ? "border-primary bg-primary/5 ring-1 ring-primary/40"
+          : "border-border/60 bg-muted/10 hover:bg-muted/25",
+      )}
+    >
+      {plan.recommended ? (
+        <span className="absolute -top-2.5 left-3 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+          Recomendado
+        </span>
+      ) : null}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold">{plan.title}</p>
+          <p className="mt-0.5 text-sm font-medium text-primary">
+            {plan.feePercent}% por venda
+          </p>
+        </div>
+        <span className="flex h-8 items-end gap-0.5" aria-hidden>
+          {[1, 2, 3, 4].map((level) => (
+            <span
+              key={level}
+              className={cn(
+                "w-1.5 rounded-sm",
+                level <= bars ? "bg-primary" : "bg-muted-foreground/25",
+              )}
+              style={{ height: `${6 + level * 4}px` }}
+            />
+          ))}
+        </span>
+      </div>
+      {plan.description ? (
+        <p className="text-xs text-muted-foreground text-pretty">
+          {plan.description}
+        </p>
+      ) : null}
+      <div className="mt-auto flex gap-1">
+        {[1, 2, 3, 4].map((level) => (
+          <span
+            key={level}
+            className={cn(
+              "h-1 flex-1 rounded-full",
+              level <= bars ? "bg-primary" : "bg-muted",
+            )}
+          />
+        ))}
+      </div>
+    </button>
+  );
+}
 
 function KindCard({
   selected,

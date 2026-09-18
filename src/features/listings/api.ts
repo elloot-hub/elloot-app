@@ -30,6 +30,7 @@ export type CreateListingInput = {
   mediaUrls?: string[];
   publish?: boolean;
   offers?: CreateListingOfferInput[];
+  reachPlanId?: string;
 };
 
 export async function fetchListing(id: string, token?: string | null) {
@@ -63,6 +64,7 @@ export type UpdateListingInput = {
   mediaAssetIds?: string[];
   mediaUrls?: string[];
   offers?: UpdateListingOfferInput[];
+  reachPlanId?: string;
 };
 
 export async function updateListing(id: string, input: UpdateListingInput) {

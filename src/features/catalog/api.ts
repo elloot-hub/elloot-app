@@ -44,6 +44,24 @@ const emptyProductTypes = {
   productTypes: [] as ProductTypeOption[],
 };
 
+export type ReachPlanOption = {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  feeBps: number;
+  feePercent: number;
+  priority: number;
+  barLevel: number;
+  recommended: boolean;
+  sortOrder: number;
+};
+
+const emptyReachPlans = {
+  success: true as const,
+  items: [] as ReachPlanOption[],
+};
+
 async function safeCatalog<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await fn();
@@ -125,6 +143,17 @@ export async function fetchProductTypes(query?: { categoryId?: string }) {
         },
       ),
     emptyProductTypes,
+  );
+}
+
+export async function fetchReachPlans() {
+  return safeCatalog(
+    () =>
+      api.get<{ success: boolean; items: ReachPlanOption[] }>(
+        "/api/catalog/reach-plans",
+        { auth: false },
+      ),
+    emptyReachPlans,
   );
 }
 
