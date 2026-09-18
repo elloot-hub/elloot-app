@@ -54,7 +54,7 @@ const LEVEL_LABELS = [
 const LEVEL_DESCRIPTIONS = [
   "Escolha o segmento do anúncio: jogos, assinaturas, redes sociais, IA e afins.",
   "Selecione o jogo, plataforma ou produto específico dentro da categoria.",
-  "Classifique o anúncio (contas, itens, diamantes, serviços…). Isso já define o tipo.",
+  "Classifique o anúncio até a folha da árvore. Em seguida escolha o tipo do produto.",
 ];
 
 function normalizeKey(value: string) {
@@ -434,14 +434,10 @@ export function SellPageContent({
   useEffect(() => {
     let cancelled = false;
     setTreeLoading(true);
-    void Promise.all([
-      fetchListingCategories({ children: true }),
-      fetchProductTypes(),
-    ])
-      .then(([cats, types]) => {
+    void fetchListingCategories({ children: true })
+      .then((cats) => {
         if (cancelled) return;
         setTree(cats.categories);
-        setProductTypes(types.productTypes);
       })
       .finally(() => {
         if (!cancelled) setTreeLoading(false);
@@ -618,19 +614,33 @@ export function SellPageContent({
     [categoryIsLeaf, selectedCategory],
   );
 
-  const needsProductTypePick = categoryIsLeaf && !inferredProductType;
+  /** Show picker whenever the leaf has sell types from dashboard/API. */
+  const needsProductTypePick = categoryIsLeaf && productTypes.length > 0;
 
   useEffect(() => {
-    if (!categoryIsLeaf) {
-      setProductType("");
+    if (!categoryIsLeaf || !selectedCategoryId) {
+      setProductTypes([]);
       return;
     }
-    if (inferredProductType) {
-      setProductType(inferredProductType);
-    }
-    // Não limpar aqui: os selects de categoria já resetam ao mudar;
-    // limpar apagava o valor carregado no modo edição.
-  }, [categoryIsLeaf, inferredProductType, selectedCategoryId]);
+    let cancelled = false;
+    void fetchProductTypes({ categoryId: selectedCategoryId }).then((types) => {
+      if (cancelled) return;
+      const next = types.productTypes;
+      setProductTypes(next);
+      setProductType((prev) => {
+        if (prev && next.some((t) => t.value === prev)) return prev;
+        const inferred = inferProductType(selectedCategory);
+        if (inferred && next.some((t) => t.value === inferred)) {
+          return inferred;
+        }
+        if (next.length === 1) return next[0]!.value as ListingProductType;
+        return prev && !next.length ? prev : "";
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [categoryIsLeaf, selectedCategoryId, selectedCategory]);
 
   const priceCents = parsePriceToCents(price);
 
@@ -1122,8 +1132,8 @@ export function SellPageContent({
                       }
                     />
                     <FieldDescription>
-                      Esta subcategoria é genérica — escolha o tipo para
-                      ajudar os compradores a encontrar o anúncio.
+                      Definido pela subcategoria no painel admin. Ajuda os
+                      compradores a encontrar o anúncio.
                     </FieldDescription>
                   </Field>
                 ) : null}

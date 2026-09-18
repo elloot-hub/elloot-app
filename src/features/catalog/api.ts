@@ -112,12 +112,17 @@ export async function fetchListingCategories(_query?: { children?: boolean }) {
   );
 }
 
-export async function fetchProductTypes() {
+export async function fetchProductTypes(query?: { categoryId?: string }) {
   return safeCatalog(
     () =>
       api.get<{ success: boolean; productTypes: ProductTypeOption[] }>(
         "/api/catalog/product-types",
-        { auth: false },
+        {
+          auth: false,
+          query: {
+            categoryId: query?.categoryId,
+          },
+        },
       ),
     emptyProductTypes,
   );
