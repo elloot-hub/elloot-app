@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   sections: HomeSectionPayload[];
-  /** Fallback when admin has no active sections configured. */
   fallbackListings?: ListingSummary[];
 };
 
@@ -26,9 +25,9 @@ export function HomeSections({ sections, fallbackListings = [] }: Props) {
   }
 
   return (
-    <section className="py-8">
+    <section className="py-5 sm:py-6">
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
             <Badge>
               <p className="animate-rise font-heading tracking-wide">

@@ -24,11 +24,8 @@ export function CategoryCarousel({ categories, className }: Props) {
         className,
       )}
     >
-      <Container className="flex flex-col gap-3 py-4">
+      <Container className="flex flex-col gap-2.5 py-3 sm:py-3.5">
         <div className="group relative overflow-hidden">
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-background via-background/80 to-transparent sm:w-12" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-background via-background/80 to-transparent sm:w-12" />
-
           <div className="flex w-max gap-2.5 animate-category-marquee group-hover:[animation-play-state:paused] sm:gap-3">
             {loop.map((category, index) => {
               const visual = getCategoryVisual(category.slug);
@@ -44,14 +41,14 @@ export function CategoryCarousel({ categories, className }: Props) {
                   )}
                 >
                   <span
-                    className="flex size-7 items-center justify-center overflow-hidden rounded-md"
+                    className="flex size-7 items-center justify-center overflow-hidden rounded-full"
                     style={{ background: visual.gradient }}
                   >
                     {category.imageUrl ? (
                       <img
                         src={category.imageUrl}
                         alt=""
-                        className="size-full object-cover"
+                        className="size-full object-cover select-none pointer-events-none"
                       />
                     ) : (
                       <Icon

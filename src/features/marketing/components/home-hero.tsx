@@ -51,8 +51,8 @@ export function HomeHero({ categories }: { categories: Category[] }) {
         <Spotlight {...spot} />
       </div>
 
-      <Container className="relative z-10 flex min-h-[min(72vh,640px)] flex-col items-center justify-center py-16 text-center sm:py-20 lg:py-24">
-        <div className="mx-auto max-w-4xl space-y-4">
+      <Container className="relative z-10 flex min-h-[min(72vh,540px)] flex-col items-center justify-center py-10 text-center sm:py-12 lg:py-14">
+        <div className="mx-auto max-w-4xl space-y-3 sm:space-y-4">
           <Badge variant="default">
             <p className="animate-rise font-heading tracking-wide">
               Comprar e vender
@@ -75,7 +75,7 @@ export function HomeHero({ categories }: { categories: Category[] }) {
             comece a lucrar — o pagamento só libera depois da entrega.
           </p>
 
-          <div className="animate-rise-delay-2 flex flex-wrap items-center justify-center gap-3 pt-1">
+          <div className="animate-rise-delay-2 flex flex-wrap items-center justify-center gap-3 pt-0.5">
             <Link
               href={routes.market}
               className={cn(buttonVariants({ size: "lg" }))}
@@ -97,4 +97,4 @@ export function HomeHero({ categories }: { categories: Category[] }) {
       <CategoryCarousel categories={categories} />
     </section>
   );
-}
+};

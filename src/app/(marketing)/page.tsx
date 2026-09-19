@@ -2,14 +2,8 @@ import { LockIcon, PackageIcon, ShieldCheckIcon } from "lucide-react";
 import { Container } from "@/components/layout/container";
 import { Badge } from "@/components/ui/badge";
 import { CategoryGrid } from "@/features/catalog/components/category-grid";
-import {
-  fetchBrowseCategories,
-  fetchCatalogListings,
-} from "@/features/catalog/api";
-import {
-  HOME_GRID_DESKTOP_LIMIT,
-  pickHomeGridCategories,
-} from "@/features/catalog/home-categories";
+import { fetchBrowseCategories, fetchCatalogListings, } from "@/features/catalog/api";
+import { HOME_GRID_DESKTOP_LIMIT, pickHomeGridCategories, } from "@/features/catalog/home-categories";
 import { fetchHomeSections, HomeSections } from "@/features/home";
 import { HomeHero } from "@/features/marketing/components/home-hero";
 import { routes } from "@/lib/routes";
@@ -38,9 +32,9 @@ export default async function HomePage() {
     <>
       <HomeHero categories={carouselCategories} />
 
-      <section className="py-12 sm:py-16">
-        <Container className="space-y-6">
-          <div className="flex flex-col items-center justify-center">
+      <section className="py-8 sm:py-10">
+        <Container className="space-y-5">
+          <div className="flex flex-col items-center justify-center gap-1">
             <Badge>
               <p className="animate-rise font-heading tracking-wide">
                 Escolha uma categoria

@@ -27,9 +27,9 @@ export function HomeSectionBlock({ section }: Props) {
   const isCarousel = section.layout === "CAROUSEL";
 
   return (
-    <section className="py-6 sm:py-8">
-      <div className="space-y-3 sm:space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+    <section className="py-4 sm:py-5">
+      <div className="space-y-3">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
           <div className="min-w-0 space-y-1">
             {section.subtitle?.trim() ? (
               <Badge>
@@ -46,7 +46,7 @@ export function HomeSectionBlock({ section }: Props) {
             href={href}
             className={cn(
               buttonVariants({ variant: "default", size: "sm" }),
-              "w-full shrink-0 rounded-full sm:w-auto",
+              "relative z-10 w-full shrink-0 rounded-full sm:w-auto",
             )}
           >
             {label}

@@ -117,7 +117,7 @@ export function SearchableSelect({ value, onValueChange, options, placeholder = 
             <img
               src={selected.iconUrl}
               alt=""
-              className="size-5 shrink-0 rounded-full object-cover"
+              className="size-7 shrink-0 rounded-full object-cover"
               loading="lazy"
               decoding="async"
             />
@@ -218,7 +218,7 @@ export function SearchableSelect({ value, onValueChange, options, placeholder = 
                         <img
                           src={option.iconUrl}
                           alt=""
-                          className="size-6 shrink-0 rounded-full object-cover"
+                          className="size-7 shrink-0 rounded-full object-cover"
                           loading="lazy"
                           decoding="async"
                         />
