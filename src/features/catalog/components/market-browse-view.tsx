@@ -39,7 +39,7 @@ export function MarketBrowseView({
   listings,
   nextCursor,
   q,
-  sort = "best_sellers",
+  sort = "recent",
   minPriceCents,
   maxPriceCents,
   countsById,
@@ -98,7 +98,7 @@ export function MarketBrowseView({
 
   const searchParams = new URLSearchParams();
   if (q) searchParams.set("q", q);
-  if (sort && sort !== "best_sellers") searchParams.set("sort", sort);
+  if (sort && sort !== "recent") searchParams.set("sort", sort);
   if (minPriceCents != null) {
     searchParams.set("min", centsToQueryDecimal(minPriceCents));
   }

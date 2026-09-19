@@ -4,13 +4,20 @@ import { Suspense } from "react";
 import { AuthSplitShell } from "@/features/auth/components/auth-split-shell";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { RequireGuest } from "@/features/auth/components/require-guest";
-import { routes } from "@/lib/routes";
+import { registerHref } from "@/features/auth/safe-next";
 
 export const metadata: Metadata = {
   title: "Entrar",
 };
 
-export default function LoginPage() {
+type Props = {
+  searchParams: Promise<{ next?: string }>;
+};
+
+export default async function LoginPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const registerLink = registerHref(params.next);
+
   return (
     <RequireGuest>
       <AuthSplitShell
@@ -18,7 +25,7 @@ export default function LoginPage() {
           <p className="hidden text-sm text-muted-foreground sm:block">
             Não tem uma conta?{" "}
             <Link
-              href={routes.register}
+              href={registerLink}
               className="font-medium text-primary underline-offset-4 hover:underline"
             >
               Registrar

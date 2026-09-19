@@ -37,7 +37,7 @@ export default async function MarketPage({ searchParams }: Props) {
   }
 
   if (q) {
-    const sort = params.sort === "price_asc" || params.sort === "price_desc" || params.sort === "reputation" || params.sort === "best_sellers" || params.sort === "recent" ? params.sort : "best_sellers";
+    const sort = params.sort === "price_asc" || params.sort === "price_desc" || params.sort === "reputation" || params.sort === "best_sellers" || params.sort === "recent" ? params.sort : "recent";
     const catalog = await fetchCatalogListings({ category: legacySlug, q, sort, limit: 48, });
 
     return (

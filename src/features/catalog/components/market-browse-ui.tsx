@@ -13,8 +13,8 @@ import { routes } from "@/lib/routes";
 import type { CatalogListingsSort } from "@/features/catalog/api";
 
 const SORT_OPTIONS: { value: CatalogListingsSort; label: string }[] = [
+  { value: "recent", label: "Relevância" },
   { value: "best_sellers", label: "Mais vendidos" },
-  { value: "recent", label: "Mais recentes" },
   { value: "price_asc", label: "Menor valor" },
   { value: "price_desc", label: "Maior valor" },
   { value: "reputation", label: "Reputação" },
@@ -274,7 +274,7 @@ type ToolbarProps = {
 
 export function MarketBrowseToolbar({
   defaultQ = "",
-  sort = "best_sellers",
+  sort = "recent",
   activeFilters = [],
 }: ToolbarProps) {
   const router = useRouter();
@@ -291,7 +291,7 @@ export function MarketBrowseToolbar({
     if (qValue.trim()) params.set("q", qValue.trim());
     else params.delete("q");
 
-    if (sortValue && sortValue !== "best_sellers") params.set("sort", sortValue);
+    if (sortValue && sortValue !== "recent") params.set("sort", sortValue);
     else params.delete("sort");
 
     const qs = params.toString();
@@ -330,7 +330,7 @@ export function MarketBrowseToolbar({
             items={SORT_ITEMS}
             disabled={pending}
             onValueChange={(value) => {
-              const next = (value ?? "best_sellers") as CatalogListingsSort;
+              const next = (value ?? "recent") as CatalogListingsSort;
               push({ sort: next });
             }}
           >

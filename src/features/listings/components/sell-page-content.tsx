@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Toggle } from "@/components/ui/toggle";
+import { DescriptionFormatHint } from "@/features/listings/components/description-format-hint";
 import { useAuth } from "@/features/auth/context";
 import { fetchListingCategories, fetchProductTypes, fetchReachPlans, type ProductTypeOption, type ReachPlanOption, } from "@/features/catalog/api";
 import { createListing, fetchListing, reorderListingOffers, updateListing } from "@/features/listings/api";
@@ -1071,7 +1072,10 @@ export function SellPageContent({
 
               <Field>
                 <div className="flex items-center justify-between gap-2">
-                  <FieldLabel>Descrição</FieldLabel>
+                  <div className="flex items-center gap-1.5">
+                    <FieldLabel>Descrição</FieldLabel>
+                    <DescriptionFormatHint />
+                  </div>
                   <span className="text-xs text-muted-foreground tabular-nums">
                     {description.length} / {MAX_DESC}
                   </span>
@@ -1081,9 +1085,15 @@ export function SellPageContent({
                   onChange={(e) =>
                     setDescription(e.target.value.slice(0, MAX_DESC))
                   }
-                  placeholder="Detalhes da entrega, o que está incluso…"
-                  className="min-h-36 max-h-36 rounded-md"
+                  placeholder={
+                    "## O que você recebe\nDetalhes da entrega, **incluso** e *observações*…"
+                  }
+                  className="min-h-36 max-h-36 rounded-md font-mono text-[13px] leading-relaxed"
                 />
+                <FieldDescription>
+                  Use **negrito**, *itálico* e ## título. Passe o mouse no ícone
+                  ? para ver exemplos.
+                </FieldDescription>
               </Field>
 
               <div className="space-y-3">

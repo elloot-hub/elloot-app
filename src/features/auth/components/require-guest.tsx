@@ -1,60 +1,61 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { fetchSession } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/context";
+import {
+  hardRedirect,
+  readNextFromLocation,
+  safeNextPath,
+} from "@/features/auth/safe-next";
+import { writeSessionSnapshot } from "@/features/auth/session-snapshot";
 import { routes } from "@/lib/routes";
 
 type Props = {
   children: React.ReactNode;
-  /** Destino quando já autenticado. */
+  /** Destino quando já autenticado e sem `?next=`. */
   redirectTo?: string;
 };
 
-function safeNext(value: string | null, fallback: string): string {
-  if (!value) return fallback;
-  if (/[\\]/.test(value) || /%5c/i.test(value)) return fallback;
-  if (!value.startsWith("/")) return fallback;
-  if (value.startsWith("//") || value.includes("://")) return fallback;
-  if (
-    value.startsWith("/login") ||
-    value.startsWith("/register") ||
-    value.startsWith("/forgot-password") ||
-    value.startsWith("/reset-password")
-  ) {
-    return fallback;
-  }
-  return value;
-}
-
 /**
  * Bloqueia páginas de convidado (login/register) se o usuário já estiver logado.
+ * Valida a sessão na API antes de redirecionar (evita loop em "Redirecionando…").
  */
 export function RequireGuest({
   children,
-  redirectTo = routes.market,
+  redirectTo = routes.home,
 }: Props) {
-  const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    if (loading || !user) return;
-    const next = new URLSearchParams(window.location.search).get("next");
-    router.replace(safeNext(next, redirectTo));
-  }, [loading, user, router, redirectTo]);
+    if (loading || !user) {
+      startedRef.current = false;
+      return;
+    }
+    if (startedRef.current) return;
+    startedRef.current = true;
 
-  if (loading) {
+    const next = safeNextPath(readNextFromLocation(), redirectTo);
+
+    void (async () => {
+      try {
+        writeSessionSnapshot(user);
+        await fetchSession();
+        hardRedirect(next);
+      } catch {
+        startedRef.current = false;
+        logout();
+      }
+    })();
+  }, [loading, user, redirectTo, logout]);
+
+  if (loading || user) {
     return (
       <div className="flex flex-1 items-center justify-center py-24">
-        <p className="text-sm text-muted-foreground">Carregando…</p>
-      </div>
-    );
-  }
-
-  if (user) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-24">
-        <p className="text-sm text-muted-foreground">Redirecionando…</p>
+        <p className="text-sm text-muted-foreground">
+          {user ? "Redirecionando…" : "Carregando…"}
+        </p>
       </div>
     );
   }

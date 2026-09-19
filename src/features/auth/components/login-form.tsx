@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -21,7 +21,12 @@ import {
   googleAuthUrl,
 } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/context";
-import { safeNextPath } from "@/features/auth/safe-next";
+import {
+  hardRedirect,
+  registerHref,
+  safeNextPath,
+  stashAuthNext,
+} from "@/features/auth/safe-next";
 import {
   isLoginRequires2fa,
   verify2faLogin,
@@ -37,9 +42,9 @@ import { routes } from "@/lib/routes";
 const REMEMBER_KEY = "elloot.rememberEmail";
 
 export function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { login, setSession } = useAuth();
+  const nextPath = safeNextPath(searchParams.get("next"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -56,6 +61,7 @@ export function LoginForm() {
   });
 
   useEffect(() => {
+    stashAuthNext(nextPath);
     try {
       const saved = window.localStorage.getItem(REMEMBER_KEY);
       if (saved) {
@@ -79,7 +85,7 @@ export function LoginForm() {
           discord: false,
         }),
       );
-  }, []);
+  }, [nextPath]);
 
   function finishRemember() {
     try {
@@ -105,7 +111,7 @@ export function LoginForm() {
         return;
       }
       finishRemember();
-      router.replace(safeNextPath(searchParams.get("next")));
+      hardRedirect(nextPath);
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Não foi possível entrar.",
@@ -129,7 +135,7 @@ export function LoginForm() {
       const result = await verify2faLogin({ challengeToken, code });
       await setSession(null, result.user!);
       finishRemember();
-      router.replace(safeNextPath(searchParams.get("next")));
+      hardRedirect(nextPath);
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Código inválido.",
@@ -232,12 +238,14 @@ export function LoginForm() {
           enabled={providers.discord}
           label="Discord"
           icon={<SiDiscord />}
+          onNavigate={() => stashAuthNext(nextPath)}
         />
         <SocialButton
           href={providers.google ? googleAuthUrl() : undefined}
           enabled={providers.google}
           label="Google"
           icon={<FcGoogle />}
+          onNavigate={() => stashAuthNext(nextPath)}
         />
       </div>
 
@@ -332,7 +340,7 @@ export function LoginForm() {
 
       <p className="text-sm text-muted-foreground sm:hidden">
         Não tem conta?{" "}
-        <Link href={routes.register} className="font-medium text-primary">
+        <Link href={registerHref(nextPath)} className="font-medium text-primary">
           Registrar
         </Link>
       </p>
@@ -345,11 +353,13 @@ function SocialButton({
   enabled,
   label,
   icon,
+  onNavigate,
 }: {
   href?: string;
   enabled: boolean;
   label: string;
   icon: React.ReactNode;
+  onNavigate?: () => void;
 }) {
   const className = cn(
     buttonVariants({ variant: "outline" }),
@@ -358,7 +368,7 @@ function SocialButton({
 
   if (enabled && href) {
     return (
-      <a href={href} className={className}>
+      <a href={href} className={className} onClick={() => onNavigate?.()}>
         {icon}
         {label}
       </a>

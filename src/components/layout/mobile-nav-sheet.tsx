@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { FaArrowTrendUp, FaBasketShopping } from "react-icons/fa6";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { loginHref, registerHref } from "@/features/auth/safe-next";
 import type { User } from "@/types/api";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,8 @@ type Props = {
   user: User | null;
   onLogout: () => void;
   onOpenCategories: () => void;
+  /** Path atual para voltar após login. */
+  authNext?: string | null;
 };
 
 export function MobileNavSheet({
@@ -30,6 +33,7 @@ export function MobileNavSheet({
   user,
   onLogout,
   onOpenCategories,
+  authNext,
 }: Props) {
   useEffect(() => {
     if (!open) return;
@@ -134,14 +138,14 @@ export function MobileNavSheet({
           ) : (
             <>
               <SheetLink
-                href={routes.login}
+                href={loginHref(authNext)}
                 icon={LogInIcon}
                 onClick={onClose}
               >
                 Fazer login
               </SheetLink>
               <Link
-                href={routes.register}
+                href={registerHref(authNext)}
                 onClick={onClose}
                 className={cn(
                   buttonVariants({ variant: "default", size: "sm" }),

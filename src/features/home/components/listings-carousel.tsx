@@ -1,66 +1,90 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import type { KeenSliderInstance } from "keen-slider";
+import { useKeenSlider } from "keen-slider/react";
+import "keen-slider/keen-slider.min.css";
 import { ListingCard } from "@/features/catalog/components/listing-card";
+import { allowVerticalScroll } from "@/features/home/lib/keen-vertical-scroll";
 import type { ListingSummary } from "@/types/api";
 
 type Props = {
   listings: ListingSummary[];
 };
 
+function updateNav(
+  slider: KeenSliderInstance,
+  setCanLeft: (v: boolean) => void,
+  setCanRight: (v: boolean) => void,
+) {
+  const d = slider.track.details;
+  if (!d) {
+    setCanLeft(false);
+    setCanRight(false);
+    return;
+  }
+  setCanLeft(d.progress > 0.02);
+  setCanRight(d.progress < 0.98);
+}
+
 export function ListingsCarousel({ listings }: Props) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [loaded, setLoaded] = useState(false);
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(false);
 
-  const updateEdges = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const max = el.scrollWidth - el.clientWidth;
-    setCanLeft(el.scrollLeft > 4);
-    setCanRight(el.scrollLeft < max - 4);
-  }, []);
+  const [sliderRef, instanceRef] = useKeenSlider<HTMLDivElement>(
+    {
+      mode: "free-snap",
+      rubberband: true,
+      slides: {
+        perView: "auto",
+        spacing: 12,
+      },
+      breakpoints: {
+        "(min-width: 640px)": {
+          slides: { perView: "auto", spacing: 16 },
+        },
+      },
+      created(s) {
+        setLoaded(true);
+        updateNav(s, setCanLeft, setCanRight);
+      },
+      slideChanged(s) {
+        updateNav(s, setCanLeft, setCanRight);
+      },
+      updated(s) {
+        updateNav(s, setCanLeft, setCanRight);
+      },
+      animationEnded(s) {
+        updateNav(s, setCanLeft, setCanRight);
+      },
+    },
+    [allowVerticalScroll],
+  );
 
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    updateEdges();
-    el.addEventListener("scroll", updateEdges, { passive: true });
-    const ro = new ResizeObserver(updateEdges);
-    ro.observe(el);
-    return () => {
-      el.removeEventListener("scroll", updateEdges);
-      ro.disconnect();
-    };
-  }, [listings.length, updateEdges]);
+    instanceRef.current?.update();
+  }, [listings, instanceRef]);
 
-  const scroll = (direction: "left" | "right") => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const step = Math.min(320, Math.round(el.clientWidth * 0.85));
-    el.scrollBy({
-      left: direction === "left" ? -step : step,
-      behavior: "smooth",
-    });
-  };
+  if (listings.length === 0) return null;
 
   return (
     <div className="relative">
-      {canLeft ? (
+      {loaded && canLeft ? (
         <button
           type="button"
-          onClick={() => scroll("left")}
+          onClick={() => instanceRef.current?.prev()}
           aria-label="Anterior"
           className="absolute top-1/2 left-0 z-[2] flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/80 bg-background/95 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-muted sm:left-1 sm:size-9"
         >
           <ChevronLeftIcon className="size-4" />
         </button>
       ) : null}
-      {canRight ? (
+      {loaded && canRight ? (
         <button
           type="button"
-          onClick={() => scroll("right")}
+          onClick={() => instanceRef.current?.next()}
           aria-label="Próximo"
           className="absolute top-1/2 right-0 z-[2] flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border/80 bg-background/95 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-muted sm:right-1 sm:size-9"
         >
@@ -68,14 +92,11 @@ export function ListingsCarousel({ listings }: Props) {
         </button>
       ) : null}
 
-      <div
-        ref={scrollRef}
-        className="-mx-1 flex gap-3 overflow-x-auto scroll-smooth px-1 pb-1 pt-0.5 snap-x snap-mandatory touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-4"
-      >
+      <div ref={sliderRef} className="keen-slider touch-pan-y">
         {listings.map((listing, index) => (
           <div
             key={listing.id}
-            className="w-[158px] shrink-0 snap-start sm:w-[200px] md:w-[220px]"
+            className="keen-slider__slide !min-w-[158px] !max-w-[158px] sm:!min-w-[200px] sm:!max-w-[200px] md:!min-w-[220px] md:!max-w-[220px]"
           >
             <ListingCard listing={listing} priority={index < 2} />
           </div>

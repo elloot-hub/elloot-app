@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { MessageCircleIcon, SendIcon } from "lucide-react";
 import { useAuth } from "@/features/auth/context";
+import { loginHref } from "@/features/auth/safe-next";
 import { askListingQuestion, fetchListingQuestions, type ListingQuestion, } from "@/features/questions/api";
 import { formatRelativeTime, userInitial, } from "@/features/listings/components/qa-utils";
 import { ApiError } from "@/lib/api/errors";
@@ -20,6 +21,7 @@ type Props = {
 
 export function ListingQuestionsSection({ listingId, sellerId }: Props) {
   const { user, token } = useAuth();
+  const loginToAsk = loginHref(routes.listing(listingId));
   const [questions, setQuestions] = useState<ListingQuestion[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -138,7 +140,7 @@ export function ListingQuestionsSection({ listingId, sellerId }: Props) {
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              <Link href={routes.login} className="font-medium text-primary hover:underline">
+              <Link href={loginToAsk} className="font-medium text-primary hover:underline">
                 Entre na conta
               </Link>{" "}
               para perguntar ao vendedor.

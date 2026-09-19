@@ -147,7 +147,7 @@ export function ListingDetailView({ listing }: Props) {
 
   return (
     <div className="space-y-6">
-      <nav className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+      <nav className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground line-clamp-1">
         <Link
           href={routes.market}
           className="transition-colors hover:text-foreground"
@@ -167,7 +167,7 @@ export function ListingDetailView({ listing }: Props) {
         ))}
         <span className="inline-flex items-center gap-1.5">
           <ChevronRightIcon className="size-3 opacity-60" />
-          <span className="max-w-[16rem] truncate text-foreground/80">
+          <span className="max-w-[16rem] line-clamp-1 text-foreground/80">
             {listing.title}
           </span>
         </span>

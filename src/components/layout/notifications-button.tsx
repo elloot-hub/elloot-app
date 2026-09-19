@@ -13,11 +13,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useAuth } from "@/features/auth/context";
+import { loginHref } from "@/features/auth/safe-next";
 import { useNotifications } from "@/features/notifications";
 import { NotificationPreferencesDialog } from "@/features/notifications/components/notification-preferences-dialog";
 import { safeInternalHref } from "@/features/notifications/safe-href";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
+import { usePathname } from "next/navigation";
 
 type Props = {
   className?: string;
@@ -43,6 +45,7 @@ function formatWhen(iso: string) {
 }
 
 export function NotificationsButton({ className }: Props) {
+  const pathname = usePathname();
   const { token } = useAuth();
   const { items, unreadCount, markRead, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
@@ -57,7 +60,7 @@ export function NotificationsButton({ className }: Props) {
   if (!token) {
     return (
       <Link
-        href={routes.login}
+        href={loginHref(pathname)}
         className={cn(
           buttonVariants({ variant: "outline", size: "icon-sm" }),
           "relative rounded-full",

@@ -26,7 +26,7 @@ function parseSort(value?: string): CatalogListingsSort {
   ) {
     return value;
   }
-  return "best_sellers";
+  return "recent";
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

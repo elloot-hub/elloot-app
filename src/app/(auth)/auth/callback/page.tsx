@@ -1,11 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { ShieldCheckIcon } from "lucide-react";
 import { exchangeOAuthCode } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/context";
+import {
+  consumeStashedAuthNext,
+  hardRedirect,
+} from "@/features/auth/safe-next";
 import {
   isLoginRequires2fa,
   verify2faLogin,
@@ -15,8 +19,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { routes } from "@/lib/routes";
 
+function finishOAuthRedirect() {
+  hardRedirect(consumeStashedAuthNext());
+}
+
 function OAuthCallbackInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { setSession, user, loading } = useAuth();
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +46,7 @@ function OAuthCallbackInner() {
       : `elloot.oauth.legacy:${legacyToken}`;
     try {
       if (sessionStorage.getItem(lockKey) === "done") {
-        router.replace(routes.market);
+        finishOAuthRedirect();
         return;
       }
       if (sessionStorage.getItem(lockKey) === "pending" && startedRef.current) {
@@ -53,7 +60,7 @@ function OAuthCallbackInner() {
     if (startedRef.current) return;
     startedRef.current = true;
 
-    (async () => {
+    void (async () => {
       try {
         if (code) {
           const result = await exchangeOAuthCode(code);
@@ -80,7 +87,7 @@ function OAuthCallbackInner() {
         } catch {
           /* ignore */
         }
-        router.replace(routes.market);
+        finishOAuthRedirect();
       } catch (err) {
         startedRef.current = false;
         try {
@@ -95,18 +102,18 @@ function OAuthCallbackInner() {
         );
       }
     })();
-  }, [code, legacyToken, router, setSession]);
+  }, [code, legacyToken, setSession]);
 
   // No code in URL: redirect if already logged in, else show error when ready.
   useEffect(() => {
     if (code || legacyToken || challengeToken) return;
     if (loading) return;
     if (user) {
-      router.replace(routes.market);
+      finishOAuthRedirect();
       return;
     }
     setError("Código de autenticação ausente no retorno do login social.");
-  }, [code, legacyToken, challengeToken, loading, user, router]);
+  }, [code, legacyToken, challengeToken, loading, user]);
 
   async function onVerify2fa(e: React.FormEvent) {
     e.preventDefault();
@@ -124,7 +131,7 @@ function OAuthCallbackInner() {
         code: totp,
       });
       await setSession(null, result.user!);
-      router.replace(routes.market);
+      finishOAuthRedirect();
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Código inválido.",

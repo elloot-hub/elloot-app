@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { MenuIcon } from "lucide-react";
 import { useAuth } from "@/features/auth/context";
+import { loginHref } from "@/features/auth/safe-next";
 import { HeaderSearch } from "@/features/catalog/components/header-search";
 import { CategoriesModal } from "@/features/catalog/components/categories-modal";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -20,7 +21,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function SiteHeader() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading, logout } = useAuth();
+  const authNext =
+    pathname &&
+    !pathname.startsWith("/login") &&
+    !pathname.startsWith("/register")
+      ? pathname
+      : undefined;
   // Hide-on-scroll temporariamente desligado para testar navbar fixa.
   // const [isVisible, setIsVisible] = useState(true);
   // const lastScrollY = useRef(0);
@@ -161,7 +169,7 @@ export function SiteHeader() {
                 </>
               ) : (
                 <Link
-                  href={routes.login}
+                  href={loginHref(authNext)}
                   className={cn(
                     buttonVariants({ size: "sm" }),
                     "rounded-full px-3 md:px-5",
@@ -188,6 +196,7 @@ export function SiteHeader() {
         user={user}
         onLogout={handleLogout}
         onOpenCategories={() => setCategoriesOpen(true)}
+        authNext={authNext}
       />
       <CategoriesModal
         open={categoriesOpen}

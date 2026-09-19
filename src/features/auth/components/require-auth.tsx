@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/context";
+import { loginHref } from "@/features/auth/safe-next";
 import { routes } from "@/lib/routes";
 
 type Props = {
@@ -19,10 +20,11 @@ export function RequireAuth({ children }: Props) {
 
   useEffect(() => {
     if (!loading && !user) {
-      const next = pathname && pathname !== routes.login
-        ? `?next=${encodeURIComponent(pathname)}`
-        : "";
-      router.replace(`${routes.login}${next}`);
+      const next =
+        pathname && pathname !== routes.login
+          ? `${pathname}${typeof window !== "undefined" ? window.location.search : ""}`
+          : null;
+      router.replace(loginHref(next));
     }
   }, [loading, user, router, pathname]);
 
@@ -37,7 +39,9 @@ export function RequireAuth({ children }: Props) {
   if (!user) {
     return (
       <div className="flex flex-1 items-center justify-center py-24">
-        <p className="text-sm text-muted-foreground">Redirecionando para o login…</p>
+        <p className="text-sm text-muted-foreground">
+          Redirecionando para o login…
+        </p>
       </div>
     );
   }

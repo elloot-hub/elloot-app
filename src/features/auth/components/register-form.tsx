@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { MailIcon, UserRoundIcon } from "lucide-react";
@@ -15,18 +15,24 @@ import {
   passwordPolicyHint,
   validatePassword,
 } from "@/features/auth/password-policy";
+import {
+  hardRedirect,
+  loginHref,
+  safeNextPath,
+  stashAuthNext,
+} from "@/features/auth/safe-next";
 import { ApiError } from "@/lib/api/errors";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 export function RegisterForm() {
-  const router = useRouter();
+  const searchParams = useSearchParams();
   const { register } = useAuth();
+  const nextPath = safeNextPath(searchParams.get("next"));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,6 +46,7 @@ export function RegisterForm() {
   });
 
   useEffect(() => {
+    stashAuthNext(nextPath);
     void fetchProviders()
       .then((res) =>
         setProviders({
@@ -53,7 +60,7 @@ export function RegisterForm() {
           discord: false,
         }),
       );
-  }, []);
+  }, [nextPath]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,7 +85,7 @@ export function RegisterForm() {
         );
         return;
       }
-      router.replace(routes.market);
+      hardRedirect(nextPath);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -112,12 +119,14 @@ export function RegisterForm() {
           enabled={providers.discord}
           label="Discord"
           icon={<SiDiscord />}
+          onNavigate={() => stashAuthNext(nextPath)}
         />
         <SocialButton
           href={providers.google ? googleAuthUrl() : undefined}
           enabled={providers.google}
           label="Google"
           icon={<FcGoogle />}
+          onNavigate={() => stashAuthNext(nextPath)}
         />
       </div>
 
@@ -186,7 +195,7 @@ export function RegisterForm() {
         {notice ? (
           <p className="text-sm text-muted-foreground" role="status">
             {notice}{" "}
-            <Link href={routes.login} className="font-medium text-primary">
+            <Link href={loginHref(nextPath)} className="font-medium text-primary">
               Entrar
             </Link>
           </p>
@@ -204,7 +213,7 @@ export function RegisterForm() {
 
       <p className="text-sm text-muted-foreground sm:hidden">
         Já tem conta?{" "}
-        <Link href={routes.login} className="font-medium text-primary">
+        <Link href={loginHref(nextPath)} className="font-medium text-primary">
           Entrar
         </Link>
       </p>
@@ -212,7 +221,19 @@ export function RegisterForm() {
   );
 }
 
-function SocialButton({ href, enabled, label, icon, }: { href?: string; enabled: boolean; label: string; icon: React.ReactNode; }) {
+function SocialButton({
+  href,
+  enabled,
+  label,
+  icon,
+  onNavigate,
+}: {
+  href?: string;
+  enabled: boolean;
+  label: string;
+  icon: React.ReactNode;
+  onNavigate?: () => void;
+}) {
   const className = cn(
     buttonVariants({ variant: "outline" }),
     "h-11 w-full gap-2 rounded-xl",
@@ -220,7 +241,7 @@ function SocialButton({ href, enabled, label, icon, }: { href?: string; enabled:
 
   if (enabled && href) {
     return (
-      <a href={href} className={className}>
+      <a href={href} className={className} onClick={() => onNavigate?.()}>
         {icon}
         {label}
       </a>
@@ -238,4 +259,4 @@ function SocialButton({ href, enabled, label, icon, }: { href?: string; enabled:
       {label}
     </button>
   );
-};
+}

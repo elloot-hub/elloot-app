@@ -24,13 +24,19 @@ function isAuthPage(pathname: string): boolean {
 }
 
 function safeInternalNext(value: string | null): string {
-  if (!value) return "/dashboard";
-  if (/[\\]/.test(value) || /%5c/i.test(value)) return "/dashboard";
-  if (!value.startsWith("/")) return "/dashboard";
-  if (value.startsWith("//")) return "/dashboard";
-  if (value.includes("://")) return "/dashboard";
-  if (value.startsWith("/login") || value.startsWith("/register")) {
-    return "/dashboard";
+  if (!value) return "/";
+  if (/[\\]/.test(value) || /%5c/i.test(value)) return "/";
+  if (!value.startsWith("/")) return "/";
+  if (value.startsWith("//")) return "/";
+  if (value.includes("://")) return "/";
+  if (
+    value.startsWith("/login") ||
+    value.startsWith("/register") ||
+    value.startsWith("/forgot-password") ||
+    value.startsWith("/reset-password") ||
+    value.startsWith("/auth/")
+  ) {
+    return "/";
   }
   return value;
 }

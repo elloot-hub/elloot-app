@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
+import { renderListingDescription } from "@/features/listings/lib/listing-description-format";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -17,7 +18,7 @@ export function ExpandableDescription({
   className,
 }: Props) {
   const contentId = useId();
-  const contentRef = useRef<HTMLParagraphElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
   const [needsToggle, setNeedsToggle] = useState(false);
 
@@ -26,7 +27,6 @@ export function ExpandableDescription({
     if (!el) return;
 
     const measure = () => {
-      // Measure full height while temporarily unconstrained.
       const prev = el.style.maxHeight;
       el.style.maxHeight = "none";
       const full = el.scrollHeight;
@@ -43,11 +43,11 @@ export function ExpandableDescription({
   return (
     <div className={cn("space-y-2", className)}>
       <div className="relative">
-        <p
+        <div
           id={contentId}
           ref={contentRef}
           className={cn(
-            "whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground transition-[max-height] duration-300 ease-out",
+            "text-sm leading-relaxed text-muted-foreground transition-[max-height] duration-300 ease-out",
             !expanded && needsToggle && "overflow-hidden",
           )}
           style={
@@ -56,8 +56,8 @@ export function ExpandableDescription({
               : undefined
           }
         >
-          {text}
-        </p>
+          {renderListingDescription(text)}
+        </div>
         {!expanded && needsToggle ? (
           <div
             aria-hidden

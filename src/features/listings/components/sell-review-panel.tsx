@@ -12,6 +12,7 @@ import { getCategoryVisual } from "@/features/catalog/category-visuals";
 import { listingVertical } from "@/features/catalog/listing-category";
 import type { SellStepId } from "@/features/listings/components/sell-stepper";
 import { buildPreviewListing, computeEditModerationChanges, computeReviewChecklist, hasBlockingReviewIssues, resolvePreviewStockQuantity, type ReviewCheckItem, type ReviewSeverity, type SellReviewInput, } from "@/features/listings/components/sell-review-utils";
+import { renderListingDescription } from "@/features/listings/lib/listing-description-format";
 import { formatBRLFromCents } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ListingProductType } from "@/types/api";
@@ -167,9 +168,11 @@ function ListingPagePreview({ input, categoryBreadcrumb, productTypes, }: { inpu
           <p className="mb-1.5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
             Descrição
           </p>
-          <p className="line-clamp-6 text-sm whitespace-pre-wrap text-pretty text-muted-foreground">
-            {input.description.trim() || "Sem descrição."}
-          </p>
+          <div className="line-clamp-6 text-sm text-pretty text-muted-foreground">
+            {input.description.trim()
+              ? renderListingDescription(input.description.trim())
+              : "Sem descrição."}
+          </div>
         </div>
 
         <Button type="button" disabled className="w-full" size="lg">
