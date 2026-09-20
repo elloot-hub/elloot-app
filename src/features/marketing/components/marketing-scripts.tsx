@@ -21,6 +21,14 @@ declare global {
 type MarketingEvent =
   | { name: "page_view" }
   | { name: "view_content"; listingId?: string; valueCents?: number }
+  | { name: "add_to_cart"; listingId?: string; valueCents?: number }
+  | {
+      name: "initiate_checkout";
+      listingId?: string;
+      valueCents?: number;
+      currency?: string;
+      orderId?: string;
+    }
   | {
       name: "purchase";
       listingId?: string;
@@ -28,6 +36,13 @@ type MarketingEvent =
       currency?: string;
       orderId?: string;
     };
+
+type TrackableListingEvent = Extract<
+  MarketingEvent,
+  {
+    name: "view_content" | "add_to_cart" | "initiate_checkout" | "purchase";
+  }
+>;
 
 type Props = {
   listingId?: string | null;
@@ -81,24 +96,32 @@ function fireEvents(tags: ResolvedMarketingTag[], event: MarketingEvent) {
   const currency =
     "currency" in event && event.currency ? event.currency : "BRL";
 
+  const contentIds =
+    "listingId" in event && event.listingId ? [event.listingId] : undefined;
+  const contentPayload = {
+    content_ids: contentIds,
+    content_type: "product" as const,
+    value,
+    currency,
+  };
+
   for (const tag of tags) {
     if (tag.key === "facebook_pixel" && typeof window.fbq === "function") {
       if (event.name === "page_view") window.fbq("track", "PageView");
       if (event.name === "view_content") {
-        window.fbq("track", "ViewContent", {
-          content_ids: event.listingId ? [event.listingId] : undefined,
-          content_type: "product",
-          value,
-          currency,
+        window.fbq("track", "ViewContent", contentPayload);
+      }
+      if (event.name === "add_to_cart") {
+        window.fbq("track", "AddToCart", contentPayload);
+      }
+      if (event.name === "initiate_checkout") {
+        window.fbq("track", "InitiateCheckout", {
+          ...contentPayload,
+          num_items: 1,
         });
       }
       if (event.name === "purchase") {
-        window.fbq("track", "Purchase", {
-          value,
-          currency,
-          content_ids: event.listingId ? [event.listingId] : undefined,
-          content_type: "product",
-        });
+        window.fbq("track", "Purchase", contentPayload);
       }
     }
 
@@ -106,14 +129,28 @@ function fireEvents(tags: ResolvedMarketingTag[], event: MarketingEvent) {
       if (event.name === "page_view") window.ttq.page();
       if (event.name === "view_content") {
         window.ttq.track("ViewContent", {
-          content_id: event.listingId,
+          content_id: "listingId" in event ? event.listingId : undefined,
+          value,
+          currency,
+        });
+      }
+      if (event.name === "add_to_cart") {
+        window.ttq.track("AddToCart", {
+          content_id: "listingId" in event ? event.listingId : undefined,
+          value,
+          currency,
+        });
+      }
+      if (event.name === "initiate_checkout") {
+        window.ttq.track("InitiateCheckout", {
+          content_id: "listingId" in event ? event.listingId : undefined,
           value,
           currency,
         });
       }
       if (event.name === "purchase") {
         window.ttq.track("CompletePayment", {
-          content_id: event.listingId,
+          content_id: "listingId" in event ? event.listingId : undefined,
           value,
           currency,
         });
@@ -131,19 +168,41 @@ function fireEvents(tags: ResolvedMarketingTag[], event: MarketingEvent) {
         window.gtag("event", "view_item", {
           currency,
           value,
-          items: event.listingId
-            ? [{ item_id: event.listingId }]
-            : undefined,
+          items:
+            "listingId" in event && event.listingId
+              ? [{ item_id: event.listingId }]
+              : undefined,
+        });
+      }
+      if (event.name === "add_to_cart") {
+        window.gtag("event", "add_to_cart", {
+          currency,
+          value,
+          items:
+            "listingId" in event && event.listingId
+              ? [{ item_id: event.listingId }]
+              : undefined,
+        });
+      }
+      if (event.name === "initiate_checkout") {
+        window.gtag("event", "begin_checkout", {
+          currency,
+          value,
+          items:
+            "listingId" in event && event.listingId
+              ? [{ item_id: event.listingId }]
+              : undefined,
         });
       }
       if (event.name === "purchase") {
         window.gtag("event", "purchase", {
-          transaction_id: event.orderId,
+          transaction_id: "orderId" in event ? event.orderId : undefined,
           currency,
           value,
-          items: event.listingId
-            ? [{ item_id: event.listingId }]
-            : undefined,
+          items:
+            "listingId" in event && event.listingId
+              ? [{ item_id: event.listingId }]
+              : undefined,
         });
       }
     }
@@ -340,6 +399,33 @@ ${ads
   );
 }
 
+/**
+ * Fire a listing funnel event to resolved pixels (platform + seller).
+ * Used outside MarketingScripts mounts (cart, buy, order paid).
+ */
+export async function trackMarketingEvent(event: TrackableListingEvent) {
+  if (readMarketingConsent() !== "granted") return;
+  if (!event.listingId) return;
+  try {
+    const { tags } = await resolveMarketingTags({ listingId: event.listingId });
+    const resolved = uniqueTags(tags);
+    // Re-init seller pixels on pages that only bootstrapped platform tags.
+    for (const tag of resolved) {
+      if (tag.key === "facebook_pixel" && typeof window.fbq === "function") {
+        const pixelId = safeId("facebook_pixel", tag.config.pixelId);
+        if (pixelId) window.fbq("init", pixelId);
+      }
+    }
+    fireEvents(resolved, {
+      ...event,
+      currency:
+        "currency" in event && event.currency ? event.currency : "BRL",
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Fire Purchase once (used from order paid flow). */
 export async function trackMarketingPurchase(input: {
   listingId: string;
@@ -347,17 +433,11 @@ export async function trackMarketingPurchase(input: {
   valueCents: number;
   currency?: string;
 }) {
-  if (readMarketingConsent() !== "granted") return;
-  try {
-    const { tags } = await resolveMarketingTags({ listingId: input.listingId });
-    fireEvents(uniqueTags(tags), {
-      name: "purchase",
-      listingId: input.listingId,
-      orderId: input.orderId,
-      valueCents: input.valueCents,
-      currency: input.currency ?? "BRL",
-    });
-  } catch {
-    /* ignore */
-  }
+  await trackMarketingEvent({
+    name: "purchase",
+    listingId: input.listingId,
+    orderId: input.orderId,
+    valueCents: input.valueCents,
+    currency: input.currency ?? "BRL",
+  });
 }

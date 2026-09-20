@@ -21,6 +21,7 @@ import { OfferSelectMenu } from "@/features/listings/components/offer-select-men
 import { useCart } from "@/features/cart";
 import { useAuth } from "@/features/auth/context";
 import { trackListingEvent } from "@/features/listings/track-listing-event";
+import { trackMarketingEvent } from "@/features/marketing/components/marketing-scripts";
 import { fetchPublicCommercial } from "@/features/platform/api";
 import { formatBRLFromCents } from "@/lib/format";
 import type {
@@ -109,6 +110,11 @@ export function ListingBuyPanel({ listing }: Props) {
         : listing.stockQuantity,
     });
     void trackListingEvent(listing.id, "PURCHASE_INTENT", displayPrice);
+    void trackMarketingEvent({
+      name: "add_to_cart",
+      listingId: listing.id,
+      valueCents: displayPrice,
+    });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };

@@ -29,7 +29,11 @@ export default async function ListingPage({ params }: Props) {
     const { listing } = await fetchListing(id);
     return (
       <Container className="py-10 sm:py-12">
-        <ListingMarketing listingId={listing.id} nonce={nonce} />
+        <ListingMarketing
+          listingId={listing.id}
+          valueCents={listing.priceCents}
+          nonce={nonce}
+        />
         <ListingDetailView listing={listing} />
       </Container>
     );

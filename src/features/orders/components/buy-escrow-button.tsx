@@ -5,6 +5,7 @@ import { useState } from "react";
 import { createOrder } from "@/features/orders/api";
 import { useAuth } from "@/features/auth/context";
 import { trackListingEvent } from "@/features/listings/track-listing-event";
+import { trackMarketingEvent } from "@/features/marketing/components/marketing-scripts";
 import { ApiError } from "@/lib/api/errors";
 import { Button } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
@@ -61,6 +62,12 @@ export function BuyEscrowButton({
     try {
       void trackListingEvent(listingId, "PURCHASE_INTENT", priceCents);
       const { order } = await createOrder(listingId, offerId);
+      void trackMarketingEvent({
+        name: "initiate_checkout",
+        listingId,
+        orderId: order.id,
+        valueCents: priceCents ?? order.amountCents,
+      });
       router.push(routes.order(orderRouteRef(order)));
     } catch (err) {
       if (err instanceof ApiError) {
