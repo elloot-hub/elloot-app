@@ -7,7 +7,7 @@ import type {
   ListingSummary,
 } from "@/types/api";
 
-const MIN_PRICE_CENTS = 150;
+const DEFAULT_MIN_PRICE_CENTS = 150;
 const MAX_TITLE = 80;
 const MAX_DESC = 5000;
 
@@ -88,17 +88,19 @@ export type SellReviewInput = {
     name: string | null;
     avatarUrl?: string | null;
   };
+  /** Min listing price from platform commercial settings. */
+  minListingCents?: number;
 };
 
 export function isLiveListingForModeration(status: ListingStatus) {
   return status === "ACTIVE" || status === "PAUSED";
 }
 
-function parsePriceToCents(raw: string): number | null {
+function parsePriceToCents(raw: string, minListingCents = DEFAULT_MIN_PRICE_CENTS): number | null {
   const digits = raw.replace(/\D/g, "");
   if (!digits) return null;
   const cents = Number(digits);
-  if (!Number.isInteger(cents) || cents < MIN_PRICE_CENTS || cents > 50_000_000) {
+  if (!Number.isInteger(cents) || cents < minListingCents || cents > 50_000_000) {
     return null;
   }
   return cents;
@@ -182,11 +184,11 @@ function offerStockQty(offer: SellPreviewOffer) {
 
 function resolvePreviewPriceCents(input: SellReviewInput): number {
   if (input.adKind === "simple") {
-    return parsePriceToCents(input.price) ?? 0;
+    return parsePriceToCents(input.price, input.minListingCents) ?? 0;
   }
   const prices = input.offers
     .filter((o) => o.active)
-    .map((o) => parsePriceToCents(o.price))
+    .map((o) => parsePriceToCents(o.price, input.minListingCents))
     .filter((p): p is number => p != null);
   return prices.length ? Math.min(...prices) : 0;
 }
@@ -247,9 +249,10 @@ export function resolvePreviewStockQuantity(input: SellReviewInput): number {
 }
 
 function validateOffersForReview(input: SellReviewInput): string | null {
+  const minPrice = input.minListingCents ?? DEFAULT_MIN_PRICE_CENTS;
   if (input.adKind === "simple") {
-    if (parsePriceToCents(input.price) == null) {
-      return `Informe um preço válido (mín. ${formatBrl(MIN_PRICE_CENTS)}).`;
+    if (parsePriceToCents(input.price, minPrice) == null) {
+      return `Informe um preço válido (mín. ${formatBrl(minPrice)}).`;
     }
     if (input.delivery === "manual") {
       const qty = Number(input.stock);
@@ -276,8 +279,8 @@ function validateOffersForReview(input: SellReviewInput): string | null {
     if (offer.title.trim().length > MAX_TITLE) {
       return `Oferta ${i + 1}: título muito longo.`;
     }
-    if (parsePriceToCents(offer.price) == null) {
-      return `Oferta ${i + 1}: preço inválido (mín. ${formatBrl(MIN_PRICE_CENTS)}).`;
+    if (parsePriceToCents(offer.price, minPrice) == null) {
+      return `Oferta ${i + 1}: preço inválido (mín. ${formatBrl(minPrice)}).`;
     }
     if (offerStockQty(offer) < 1) {
       return offer.delivery === "auto"
@@ -432,7 +435,7 @@ export function computeReviewChecklist(input: SellReviewInput): ReviewCheckItem[
       severity: "ok",
     });
   } else {
-    const cents = parsePriceToCents(input.price);
+    const cents = parsePriceToCents(input.price, input.minListingCents);
     const stockLabel =
       input.delivery === "auto"
         ? `${countAutoLines(input.autoStock) || input.stock} un. (auto)`

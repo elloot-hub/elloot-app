@@ -1,16 +1,32 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { BadgeCheckIcon, CheckCircle2Icon, CreditCardIcon, ShieldCheckIcon, ShoppingBagIcon, } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  BadgeCheckIcon,
+  CheckCircle2Icon,
+  CreditCardIcon,
+  InfoIcon,
+  ShieldCheckIcon,
+  ShoppingBagIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { FavoriteButton } from "@/features/favorites";
 import { BuyEscrowButton } from "@/features/orders/components/buy-escrow-button";
 import { OfferSelectMenu } from "@/features/listings/components/offer-select-menu";
 import { useCart } from "@/features/cart";
 import { useAuth } from "@/features/auth/context";
 import { trackListingEvent } from "@/features/listings/track-listing-event";
+import { fetchPublicCommercial } from "@/features/platform/api";
 import { formatBRLFromCents } from "@/lib/format";
-import type { ListingDetail as ListingDetailType, ListingOffer, } from "@/types/api";
+import type {
+  ListingDetail as ListingDetailType,
+  ListingOffer,
+} from "@/types/api";
 
 type Props = {
   listing: ListingDetailType;
@@ -20,6 +36,17 @@ export function ListingBuyPanel({ listing }: Props) {
   const { addItem } = useCart();
   const { user } = useAuth();
   const [added, setAdded] = useState(false);
+  const [paymentFeeCents, setPaymentFeeCents] = useState(84);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchPublicCommercial().then((c) => {
+      if (!cancelled) setPaymentFeeCents(c.paymentFeeCents);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const isDynamic = listing.listingModel === "DYNAMIC";
   const offers = useMemo(
@@ -32,11 +59,26 @@ export function ListingBuyPanel({ listing }: Props) {
     [listing.offers],
   );
 
-  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(() => offers[0]?.id ?? null,);
-  const selectedOffer: ListingOffer | null = offers.find((o) => o.id === selectedOfferId) ?? offers[0] ?? null;
-  const displayPrice = isDynamic ? (selectedOffer?.priceCents ?? listing.priceCents) : listing.priceCents;
-  const canBuy = listing.status === "ACTIVE" && (!isDynamic || Boolean(selectedOffer)) && (isDynamic ? (selectedOffer?.stockQuantity ?? 0) > 0 : listing.stockQuantity > 0);
-  const stockLabel = isDynamic ? selectedOffer ? `${selectedOffer.stockQuantity} em estoque` : "Sem estoque" : `${listing.stockQuantity} em estoque`;
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(
+    () => offers[0]?.id ?? null,
+  );
+  const selectedOffer: ListingOffer | null =
+    offers.find((o) => o.id === selectedOfferId) ?? offers[0] ?? null;
+  const displayPrice = isDynamic
+    ? (selectedOffer?.priceCents ?? listing.priceCents)
+    : listing.priceCents;
+  const totalCents = displayPrice + paymentFeeCents;
+  const canBuy =
+    listing.status === "ACTIVE" &&
+    (!isDynamic || Boolean(selectedOffer)) &&
+    (isDynamic
+      ? (selectedOffer?.stockQuantity ?? 0) > 0
+      : listing.stockQuantity > 0);
+  const stockLabel = isDynamic
+    ? selectedOffer
+      ? `${selectedOffer.stockQuantity} em estoque`
+      : "Sem estoque"
+    : `${listing.stockQuantity} em estoque`;
 
   const isOwnListing = Boolean(user && user.id === listing.seller.id);
   const emailOk = listing.seller.verifications?.email ?? false;
@@ -78,6 +120,26 @@ export function ListingBuyPanel({ listing }: Props) {
           <p className="text-2xl font-bold tracking-tight text-primary tabular-nums sm:text-3xl">
             {formatBRLFromCents(displayPrice)}
           </p>
+          {paymentFeeCents > 0 ? (
+            <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              Total com taxa {formatBRLFromCents(totalCents)}
+              <Tooltip>
+                <TooltipTrigger
+                  delay={120}
+                  render={<span />}
+                  className="inline-flex size-4 items-center justify-center rounded-sm outline-none"
+                  aria-label="Detalhe da taxa de pagamento"
+                >
+                  <InfoIcon className="size-3.5 opacity-70" aria-hidden />
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[16rem] text-pretty">
+                  Inclui taxa de pagamento de{" "}
+                  {formatBRLFromCents(paymentFeeCents)} (PIX e proteção da
+                  compra).
+                </TooltipContent>
+              </Tooltip>
+            </p>
+          ) : null}
         </div>
         <FavoriteButton listingId={listing.id} size="sm" />
       </div>
@@ -106,7 +168,7 @@ export function ListingBuyPanel({ listing }: Props) {
               sellerId={listing.seller.id}
               offerId={isDynamic ? selectedOffer?.id : undefined}
               priceCents={displayPrice}
-              priceLabel={formatBRLFromCents(displayPrice)}
+              priceLabel={formatBRLFromCents(totalCents)}
               showHint={false}
               className="min-w-0 flex-[1.4]"
               buttonClassName="h-11"

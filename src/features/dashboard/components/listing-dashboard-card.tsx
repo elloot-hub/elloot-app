@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import type { ListingDetail, ListingStatus } from "@/types/api";
-import { ExternalLinkIcon, PackageIcon, PencilIcon } from "lucide-react";
+import { ExternalLinkIcon, MegaphoneIcon, PackageIcon, PencilIcon } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
@@ -229,6 +229,19 @@ export function ListingDashboardCard({
               >
                 <PencilIcon className="size-3.5" />
                 Editar
+              </Link>
+            ) : null}
+
+            {canEdit ? (
+              <Link
+                href={routes.dashboardListingMarketing(listingRouteRef(listing))}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "flex-1 sm:flex-none",
+                )}
+              >
+                <MegaphoneIcon className="size-3.5" />
+                Marketing
               </Link>
             ) : null}
 

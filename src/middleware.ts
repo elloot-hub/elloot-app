@@ -8,6 +8,28 @@ const SESSION_HINT_COOKIE = "elloot_session";
 const PROTECTED_PREFIXES = ["/dashboard", "/sell", "/orders"] as const;
 const isProd = process.env.NODE_ENV === "production";
 
+const apiUrl =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ||
+  "http://localhost:5000";
+
+function apiOrigin(): string {
+  try {
+    return new URL(apiUrl).origin;
+  } catch {
+    return "http://localhost:5000";
+  }
+}
+
+function wsOrigin(): string {
+  try {
+    const u = new URL(apiUrl);
+    u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
+    return u.origin;
+  } catch {
+    return "";
+  }
+}
+
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
@@ -41,8 +63,60 @@ function safeInternalNext(value: string | null): string {
   return value;
 }
 
+function buildCsp(nonce: string): string {
+  const marketingScriptHosts = [
+    "https://connect.facebook.net",
+    "https://www.facebook.com",
+    "https://analytics.tiktok.com",
+    "https://www.googletagmanager.com",
+    "https://www.google-analytics.com",
+    "https://googleads.g.doubleclick.net",
+    "https://www.googleadservices.com",
+  ].join(" ");
+
+  const marketingConnectHosts = [
+    "https://www.facebook.com",
+    "https://connect.facebook.net",
+    "https://analytics.tiktok.com",
+    "https://www.googletagmanager.com",
+    "https://www.google-analytics.com",
+    "https://region1.google-analytics.com",
+    "https://googleads.g.doubleclick.net",
+    "https://www.google.com",
+    "https://www.googleadservices.com",
+  ].join(" ");
+
+  // Prod: nonce only (no unsafe-inline/eval for scripts). Dev: keep eval for Next HMR.
+  const scriptSrc = isProd
+    ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${marketingScriptHosts}`
+    : `script-src 'self' 'nonce-${nonce}' 'unsafe-eval' ${marketingScriptHosts}`;
+
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    scriptSrc,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https: http://localhost:* http://127.0.0.1:*",
+    "font-src 'self' data:",
+    `connect-src 'self' ${apiOrigin()} ${wsOrigin()} ${marketingConnectHosts}`.trim(),
+    "frame-src 'self' https://www.googletagmanager.com https://www.facebook.com",
+    "worker-src 'self' blob:",
+    ...(isProd ? ["upgrade-insecure-requests"] : []),
+  ]
+    .join("; ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
 
   if (isProd && (pathname === "/ui" || pathname.startsWith("/ui/"))) {
     return NextResponse.redirect(new URL("/", request.url));
@@ -64,22 +138,22 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(dest, request.url));
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  response.headers.set("Content-Security-Policy", buildCsp(nonce));
+  response.headers.set("x-nonce", nonce);
+  return response;
 }
 
 export const config = {
   matcher: [
-    "/dashboard",
-    "/dashboard/:path*",
-    "/sell",
-    "/sell/:path*",
-    "/orders",
-    "/orders/:path*",
-    "/login",
-    "/register",
-    "/forgot-password",
-    "/reset-password",
-    "/ui",
-    "/ui/:path*",
+    /*
+     * Apply CSP nonce to all app routes; skip static assets.
+     */
+    {
+      source:
+        "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    },
   ],
 };

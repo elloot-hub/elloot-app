@@ -95,6 +95,12 @@ export const api = {
     options?: Omit<ApiRequestOptions, "method" | "body">,
   ) => apiRequest<T>(path, { ...options, method: "POST", body }),
 
+  put: <T>(
+    path: string,
+    body?: unknown,
+    options?: Omit<ApiRequestOptions, "method" | "body">,
+  ) => apiRequest<T>(path, { ...options, method: "PUT", body }),
+
   patch: <T>(
     path: string,
     body?: unknown,

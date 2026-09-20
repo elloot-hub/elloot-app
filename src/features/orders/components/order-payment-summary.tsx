@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import { InfoIcon, ShieldCheckIcon } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatBRLFromCents } from "@/lib/format";
 import { formatOrderCode } from "@/lib/order-code";
 import { routes } from "@/lib/routes";
@@ -17,15 +22,55 @@ type Props = {
     offerTitle?: string | null;
   };
   amountCents: number;
-  feeCents: number;
+  /** Buyer-facing fixed payment fee (snapshot). */
+  paymentFeeCents?: number;
+  /**
+   * Seller-facing reach/platform fee. When `variant` is seller, shown with tooltip.
+   * Hidden for buyers.
+   */
+  feeCents?: number;
+  /** Buyer sees product + payment fee; seller sees product − anúncio fee. */
+  variant?: "buyer" | "seller";
   methodLabel?: string;
   sellerName?: string | null;
   className?: string;
 };
 
-export function OrderPaymentSummary({ orderId, orderCode, listing, amountCents, feeCents, methodLabel = "PIX", sellerName, className, }: Props) {
-  const subtotalCents = Math.max(0, amountCents - feeCents);
+function FeeInfo({ label }: { label: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        delay={120}
+        render={<span />}
+        className="inline-flex size-4 items-center justify-center rounded-sm outline-none"
+        aria-label="Mais informações"
+      >
+        <InfoIcon className="size-3.5 opacity-70" aria-hidden />
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[16rem] text-pretty">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+export function OrderPaymentSummary({
+  orderId,
+  orderCode,
+  listing,
+  amountCents,
+  paymentFeeCents = 0,
+  feeCents = 0,
+  variant = "buyer",
+  methodLabel = "PIX",
+  sellerName,
+  className,
+}: Props) {
   const label = formatOrderCode({ id: orderId, code: orderCode });
+  const isSeller = variant === "seller";
+  const totalCents = isSeller
+    ? Math.max(0, amountCents - feeCents)
+    : amountCents + paymentFeeCents;
 
   return (
     <aside
@@ -65,7 +110,7 @@ export function OrderPaymentSummary({ orderId, orderCode, listing, amountCents, 
           ) : null}
 
           <p className="text-xs text-muted-foreground">
-            1 × {formatBRLFromCents(subtotalCents)}
+            1 × {formatBRLFromCents(amountCents)}
           </p>
         </div>
       </div>
@@ -85,27 +130,65 @@ export function OrderPaymentSummary({ orderId, orderCode, listing, amountCents, 
             <dd className="min-w-0 truncate text-right">{sellerName}</dd>
           </div>
         ) : null}
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <dt className="shrink-0 text-muted-foreground">Pedido</dt>
+          <dd className="min-w-0 truncate font-mono text-xs">
+            <Link href={routes.order(label)} className="hover:text-primary">
+              {label}
+            </Link>
+          </dd>
+        </div>
       </dl>
 
       <dl className="space-y-2 border-t border-border/50 pt-3 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-muted-foreground">Subtotal</dt>
-          <dd className="tabular-nums">{formatBRLFromCents(subtotalCents)}</dd>
+          <dt className="text-muted-foreground">Produto</dt>
+          <dd className="tabular-nums">{formatBRLFromCents(amountCents)}</dd>
         </div>
-        <div className="flex items-center justify-between gap-3">
-          <dt className="inline-flex items-center gap-1 text-muted-foreground">
-            Taxa de serviço
-            <InfoIcon className="size-3.5 opacity-70" aria-hidden />
-          </dt>
-          <dd className="tabular-nums">{formatBRLFromCents(feeCents)}</dd>
-        </div>
+
+        {isSeller ? (
+          <div className="flex items-center justify-between gap-3">
+            <dt className="inline-flex items-center gap-1 text-muted-foreground">
+              Taxa do anúncio
+              <FeeInfo label="Descontada do valor da venda conforme o plano de alcance do anúncio." />
+            </dt>
+            <dd className="tabular-nums text-muted-foreground">
+              −{formatBRLFromCents(feeCents)}
+            </dd>
+          </div>
+        ) : paymentFeeCents > 0 ? (
+          <div className="flex items-center justify-between gap-3">
+            <dt className="inline-flex items-center gap-1 text-muted-foreground">
+              Taxa de pagamento
+              <FeeInfo label="Processamento do PIX e proteção da compra." />
+            </dt>
+            <dd className="tabular-nums">
+              {formatBRLFromCents(paymentFeeCents)}
+            </dd>
+          </div>
+        ) : null}
+
         <div className="flex items-center justify-between gap-3 pt-1">
-          <dt className="font-semibold">Total</dt>
+          <dt className="font-semibold">
+            {isSeller ? "Você recebe" : "Total"}
+          </dt>
           <dd className="text-lg font-bold tabular-nums text-primary">
-            {formatBRLFromCents(amountCents)}
+            {formatBRLFromCents(totalCents)}
           </dd>
         </div>
       </dl>
+
+      {!isSeller && paymentFeeCents > 0 ? (
+        <p className="text-[11px] text-muted-foreground text-pretty">
+          A taxa de pagamento é cobrada à parte do valor do produto.
+        </p>
+      ) : null}
+
+      {isSeller ? (
+        <p className="text-[11px] text-muted-foreground text-pretty">
+          A taxa de pagamento do PIX é cobrada do comprador, não do seu líquido.
+        </p>
+      ) : null}
 
       <div className="flex items-center gap-2 rounded-sm border border-border/50 bg-muted/20 px-3 py-2.5 text-xs text-muted-foreground">
         <ShieldCheckIcon
@@ -113,7 +196,7 @@ export function OrderPaymentSummary({ orderId, orderCode, listing, amountCents, 
           aria-hidden
         />
         <p className="text-pretty">
-          Transação protegida pela Elloot. O valor fica em retido até a
+          Transação protegida pela Elloot. O valor fica retido até a
           confirmação da entrega do produto.
         </p>
       </div>

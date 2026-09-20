@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { DM_Sans, Geist_Mono, Sora } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/features/auth/context";
 import { CartProvider } from "@/features/cart";
 import { FavoritesProvider } from "@/features/favorites";
+import { ConsentGate } from "@/features/marketing/components/consent-gate";
+import { MarketingScripts } from "@/features/marketing/components/marketing-scripts";
 import { NotificationsProvider } from "@/features/notifications";
 import { RealtimeProvider } from "@/features/realtime";
 import { cn } from "@/lib/utils";
@@ -37,11 +40,13 @@ export const metadata: Metadata = {
     "Compre e venda contas e itens digitais com escrow. Pagamento seguro até a entrega.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="pt-BR"
@@ -54,19 +59,28 @@ export default function RootLayout({
         "font-sans",
       )}
     >
-      <body className="flex min-h-full flex-col">
+      <body className="flex min-h-full flex-col" data-nonce={nonce}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
+          nonce={nonce}
         >
           <TooltipProvider delay={200}>
             <AuthProvider>
               <RealtimeProvider>
                 <NotificationsProvider>
                   <FavoritesProvider>
-                    <CartProvider>{children}</CartProvider>
+                    <CartProvider>
+                      <MarketingScripts
+                        includeScopes={["platform"]}
+                        event={{ name: "page_view" }}
+                        nonce={nonce}
+                      />
+                      {children}
+                      <ConsentGate />
+                    </CartProvider>
                   </FavoritesProvider>
                 </NotificationsProvider>
               </RealtimeProvider>

@@ -2,49 +2,112 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FaDiscord, FaInstagram, FaYoutube, FaXTwitter, } from "react-icons/fa6";
+import { useEffect, useState } from "react";
+import {
+  FaDiscord,
+  FaInstagram,
+  FaYoutube,
+  FaXTwitter,
+} from "react-icons/fa6";
 import { MessageCircleIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Container } from "@/components/layout/container";
 import { buttonVariants } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
+import { config } from "@/lib/config";
 import { cn } from "@/lib/utils";
+import type { PublicFooter } from "@/features/site/api";
 
-const DISCORD_URL = "https://discord.gg/";
-const SOCIAL = [
-  { href: DISCORD_URL, label: "Discord", Icon: FaDiscord },
-  { href: "https://youtube.com/", label: "YouTube", Icon: FaYoutube },
-  { href: "https://x.com/", label: "X", Icon: FaXTwitter },
-  { href: "https://instagram.com/", label: "Instagram", Icon: FaInstagram },
-] as const;
+const SOCIAL_ICONS: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
+  discord: FaDiscord,
+  youtube: FaYoutube,
+  x: FaXTwitter,
+  twitter: FaXTwitter,
+  instagram: FaInstagram,
+};
 
-const QUICK_LINKS = [
-  { href: routes.sell, label: "Anunciar" },
-  { href: routes.blog, label: "Blog" },
-  { href: routes.faq, label: "Perguntas frequentes" },
-  { href: routes.market, label: "Categorias" },
-  { href: routes.help, label: "Central de ajuda" },
-] as const;
-
-const INSTITUTIONAL_LINKS = [
-  { href: routes.howItWorks, label: "Como funciona" },
-  { href: routes.advantages, label: "Vantagens" },
-  { href: routes.fees, label: "Tarifas e prazos" },
-  { href: routes.paymentMethods, label: "Formas de pagamento" },
-  { href: routes.accountVerifier, label: "Verificador de contas" },
-] as const;
-
-const LEGAL_LINKS = [
-  { href: routes.terms, label: "Termos de Uso" },
-  { href: routes.rewards, label: "Programa de Recompensa" },
-  { href: routes.privacy, label: "Política de Privacidade" },
-  { href: routes.refund, label: "Política de Reembolso" },
-  { href: routes.careers, label: "Trabalhe Conosco" },
-] as const;
+const FALLBACK_FOOTER: PublicFooter = {
+  tagline:
+    "Somos a solução para o mercado digital: uma plataforma moderna para o comprador receber o produto desejado e o vendedor receber pela venda — com praticidade e segurança via escrow.",
+  columns: [
+    {
+      id: "quick",
+      title: "Acesso rápido",
+      items: [
+        { id: "q1", label: "Anunciar", href: routes.sell },
+        { id: "q2", label: "Blog", href: routes.blog },
+        { id: "q3", label: "Perguntas frequentes", href: routes.faq },
+        { id: "q4", label: "Categorias", href: routes.market },
+        { id: "q5", label: "Central de ajuda", href: routes.help },
+      ],
+    },
+    {
+      id: "institutional",
+      title: "Institucional",
+      items: [
+        { id: "i1", label: "Como funciona", href: routes.howItWorks },
+        { id: "i2", label: "Vantagens", href: routes.advantages },
+        { id: "i3", label: "Tarifas e prazos", href: routes.fees },
+        {
+          id: "i4",
+          label: "Formas de pagamento",
+          href: routes.paymentMethods,
+        },
+      ],
+    },
+  ],
+  socials: [
+    { network: "discord", url: "https://discord.gg/", enabled: true },
+    { network: "youtube", url: "https://youtube.com/", enabled: true },
+    { network: "x", url: "https://x.com/", enabled: true },
+    { network: "instagram", url: "https://instagram.com/", enabled: true },
+  ],
+  legalLinks: [
+    { id: "l1", label: "Termos de Uso", href: routes.terms },
+    { id: "l2", label: "Programa de Recompensa", href: routes.rewards },
+    { id: "l3", label: "Política de Privacidade", href: routes.privacy },
+    { id: "l4", label: "Política de Reembolso", href: routes.refund },
+    { id: "l5", label: "Trabalhe Conosco", href: routes.careers },
+  ],
+  helpCta: {
+    discordUrl: "https://discord.gg/",
+    discordEnabled: true,
+    contactEnabled: true,
+    contactHref: routes.contact,
+  },
+  homeLinks: [],
+};
 
 export function SiteFooter() {
   const pathname = usePathname();
+  const [footer, setFooter] = useState<PublicFooter>(FALLBACK_FOOTER);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(`${config.apiUrl}/api/platform/footer`, {
+      credentials: "omit",
+      headers: { Accept: "application/json" },
+    })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return (await res.json()) as { footer: PublicFooter };
+      })
+      .then((data) => {
+        if (!cancelled && data?.footer) setFooter(data.footer);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   if (pathname.startsWith("/dashboard/messages/")) return null;
+
+  const discordUrl = footer.helpCta.discordUrl || "https://discord.gg/";
+  const contactHref = footer.helpCta.contactHref || routes.contact;
 
   return (
     <footer className="mt-auto border-t border-border/50 bg-card/40">
@@ -64,42 +127,41 @@ export function SiteFooter() {
                 className="h-10 w-auto object-contain select-none"
               />
             </Link>
-            <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-              Somos a solução para o mercado digital: uma plataforma moderna para
-              o comprador receber o produto desejado e o vendedor receber pela
-              venda — com praticidade e segurança via escrow.
-            </p>
+            {footer.tagline ? (
+              <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+                {footer.tagline}
+              </p>
+            ) : null}
             <div className="flex items-center gap-2 pt-1">
-              {SOCIAL.map(({ href, label, Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={label}
-                  className="flex size-9 items-center justify-center rounded-full border border-border/60 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-foreground"
-                >
-                  <Icon className="size-4" />
-                </a>
-              ))}
+              {footer.socials
+                .filter((s) => s.url)
+                .map(({ network, url }) => {
+                  const Icon = SOCIAL_ICONS[network.toLowerCase()] ?? FaDiscord;
+                  return (
+                    <a
+                      key={network}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={network}
+                      className="flex size-9 items-center justify-center rounded-full border border-border/60 text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-foreground"
+                    >
+                      <Icon className="size-4" />
+                    </a>
+                  );
+                })}
             </div>
           </div>
 
-          <FooterColumn title="Acesso rápido">
-            {QUICK_LINKS.map((link) => (
-              <FooterLink key={link.href} href={link.href}>
-                {link.label}
-              </FooterLink>
-            ))}
-          </FooterColumn>
-
-          <FooterColumn title="Institucional">
-            {INSTITUTIONAL_LINKS.map((link) => (
-              <FooterLink key={link.href} href={link.href}>
-                {link.label}
-              </FooterLink>
-            ))}
-          </FooterColumn>
+          {footer.columns.map((col) => (
+            <FooterColumn key={col.id} title={col.title}>
+              {col.items.map((link) => (
+                <FooterLink key={link.id} href={link.href}>
+                  {link.label}
+                </FooterLink>
+              ))}
+            </FooterColumn>
+          ))}
 
           <div className="space-y-4">
             <p className="font-heading text-xs font-semibold tracking-[0.16em] text-foreground uppercase">
@@ -110,28 +172,32 @@ export function SiteFooter() {
               está à sua disposição.
             </p>
             <div className="flex flex-col gap-2.5">
-              <a
-                href={DISCORD_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(
-                  buttonVariants({ size: "default" }),
-                  "h-11 justify-center rounded-xl bg-[#5865F2] text-white hover:bg-[#4752C4]",
-                )}
-              >
-                <FaDiscord className="size-4" />
-                Junte-se ao Discord
-              </a>
-              <Link
-                href={routes.contact}
-                className={cn(
-                  buttonVariants({ variant: "secondary", size: "default" }),
-                  "h-11 justify-center rounded-xl",
-                )}
-              >
-                <MessageCircleIcon className="size-4" />
-                Vamos conversar
-              </Link>
+              {footer.helpCta.discordEnabled ? (
+                <a
+                  href={discordUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    buttonVariants({ size: "default" }),
+                    "h-11 justify-center rounded-xl bg-[#5865F2] text-white hover:bg-[#4752C4]",
+                  )}
+                >
+                  <FaDiscord className="size-4" />
+                  Junte-se ao Discord
+                </a>
+              ) : null}
+              {footer.helpCta.contactEnabled ? (
+                <Link
+                  href={contactHref}
+                  className={cn(
+                    buttonVariants({ variant: "secondary", size: "default" }),
+                    "h-11 justify-center rounded-xl",
+                  )}
+                >
+                  <MessageCircleIcon className="size-4" />
+                  Vamos conversar
+                </Link>
+              ) : null}
             </div>
           </div>
         </div>
@@ -140,9 +206,9 @@ export function SiteFooter() {
       <div className="border-t border-border/50">
         <Container className="flex flex-col gap-4 py-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
           <nav className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
-            {LEGAL_LINKS.map((link) => (
+            {footer.legalLinks.map((link) => (
               <Link
-                key={link.href}
+                key={link.id}
                 href={link.href}
                 className="transition-colors hover:text-foreground"
               >
@@ -160,18 +226,28 @@ export function SiteFooter() {
   );
 }
 
-function FooterColumn({ title, children, }: { title: string; children: React.ReactNode; }) {
+function FooterColumn({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-foreground">
-        {title}
-      </p>
+      <p className="text-sm font-medium text-foreground">{title}</p>
       <div className="flex flex-col gap-2 text-sm">{children}</div>
     </div>
   );
 }
 
-function FooterLink({ href, children, }: { href: string; children: React.ReactNode; }) {
+function FooterLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
   return (
     <Link
       href={href}

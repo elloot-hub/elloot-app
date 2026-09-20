@@ -24,6 +24,7 @@ export type Order = {
   status: OrderStatus;
   amountCents: number;
   feeCents: number;
+  paymentFeeCents?: number;
   offerId?: string | null;
   paidAt: string | null;
   deliveredAt: string | null;

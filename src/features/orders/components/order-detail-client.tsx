@@ -45,6 +45,7 @@ import { formatOrderCode, orderRouteRef } from "@/lib/order-code";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { trackMarketingPurchase } from "@/features/marketing/components/marketing-scripts";
 
 type Props = {
   orderId: string;
@@ -78,6 +79,11 @@ export function OrderDetailClient({ orderId }: Props) {
       redirectedRef.current = true;
       setPhase("paid");
       setMessage("Pagamento confirmado. Proteção da compra ativada.");
+      void trackMarketingPurchase({
+        listingId: paidOrder.listing.id,
+        orderId: paidOrder.id,
+        valueCents: paidOrder.amountCents,
+      });
       const chatId = paidOrder.conversation?.id;
       window.setTimeout(() => {
         if (chatId) {
@@ -329,7 +335,9 @@ export function OrderDetailClient({ orderId }: Props) {
             <PaymentCheckoutPanel
               checkout={checkout}
               loadingCheckout={checkoutLoading}
-              amountCents={order.amountCents}
+              amountCents={
+                order.amountCents + (order.paymentFeeCents ?? 0)
+              }
               expiresAt={order.expiresAt}
               listingTitle={order.listing.title}
               methods={methods}
@@ -392,7 +400,9 @@ export function OrderDetailClient({ orderId }: Props) {
                 offerTitle: order.offer?.title ?? null,
               }}
               amountCents={order.amountCents}
+              paymentFeeCents={order.paymentFeeCents ?? 0}
               feeCents={order.feeCents}
+              variant="buyer"
               methodLabel="PIX"
               sellerName={order.seller.name ?? order.seller.email}
             />
@@ -461,7 +471,7 @@ export function OrderDetailClient({ orderId }: Props) {
         <div className="order-1 min-w-0 max-w-full space-y-4">
           {nextStep ? <OrderNextStepCallout step={nextStep} /> : null}
 
-          <OrderDetailsBlock order={order} />
+          <OrderDetailsBlock order={order} isSeller={isSeller} />
 
           {order.escrowHold ? (
             <PurchaseProtection hold={order.escrowHold} />
@@ -590,7 +600,9 @@ export function OrderDetailClient({ orderId }: Props) {
               offerTitle: order.offer?.title ?? null,
             }}
             amountCents={order.amountCents}
+            paymentFeeCents={order.paymentFeeCents ?? 0}
             feeCents={order.feeCents}
+            variant={isSeller && !isBuyer ? "seller" : "buyer"}
             methodLabel="PIX"
             sellerName={order.seller.name ?? order.seller.email}
           />
@@ -649,7 +661,13 @@ export function OrderDetailClient({ orderId }: Props) {
   );
 }
 
-function OrderDetailsBlock({ order }: { order: Order }) {
+function OrderDetailsBlock({
+  order,
+  isSeller = false,
+}: {
+  order: Order;
+  isSeller?: boolean;
+}) {
   const cover = order.listing.media[0]?.url;
   return (
     <>
@@ -683,9 +701,21 @@ function OrderDetailsBlock({ order }: { order: Order }) {
               Oferta: {order.offer.title}
             </p>
           ) : null}
-          <p className="text-xs text-muted-foreground">
-            Taxa da plataforma: {formatBRLFromCents(order.feeCents)}
-          </p>
+          {isSeller ? (
+            <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              Taxa do anúncio: {formatBRLFromCents(order.feeCents)} · líquido{" "}
+              {formatBRLFromCents(
+                Math.max(0, order.amountCents - order.feeCents),
+              )}
+            </p>
+          ) : (order.paymentFeeCents ?? 0) > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Total com taxa:{" "}
+              {formatBRLFromCents(
+                order.amountCents + (order.paymentFeeCents ?? 0),
+              )}
+            </p>
+          ) : null}
         </div>
       </div>
 

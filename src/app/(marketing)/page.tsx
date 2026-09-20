@@ -1,17 +1,26 @@
 import { LockIcon, PackageIcon, ShieldCheckIcon } from "lucide-react";
+import Link from "next/link";
 import { Container } from "@/components/layout/container";
 import { Badge } from "@/components/ui/badge";
 import { CategoryGrid } from "@/features/catalog/components/category-grid";
-import { fetchBrowseCategories, fetchCatalogListings, } from "@/features/catalog/api";
-import { HOME_GRID_DESKTOP_LIMIT, pickHomeGridCategories, } from "@/features/catalog/home-categories";
+import {
+  fetchBrowseCategories,
+  fetchCatalogListings,
+} from "@/features/catalog/api";
+import {
+  HOME_GRID_DESKTOP_LIMIT,
+  pickHomeGridCategories,
+} from "@/features/catalog/home-categories";
 import { fetchHomeSections, HomeSections } from "@/features/home";
 import { HomeHero } from "@/features/marketing/components/home-hero";
+import { fetchPublicHomeLinks } from "@/features/site/api";
 import { routes } from "@/lib/routes";
 
 export default async function HomePage() {
-  const [{ categories }, home] = await Promise.all([
+  const [{ categories }, home, homeLinks] = await Promise.all([
     fetchBrowseCategories(),
     fetchHomeSections(),
+    fetchPublicHomeLinks(),
   ]);
 
   const gridCategories = pickHomeGridCategories(
@@ -104,6 +113,20 @@ export default async function HomePage() {
               </li>
             ))}
           </ol>
+
+          {homeLinks.length > 0 ? (
+            <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-2 text-sm">
+              {homeLinks.map((link) => (
+                <Link
+                  key={link.id}
+                  href={link.href}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          ) : null}
         </Container>
       </section>
     </>

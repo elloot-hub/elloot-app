@@ -8,7 +8,7 @@ import {
   countAutoLines,
   parseAutoStockLines,
 } from "@/features/listings/components/numbered-stock-textarea";
-import { CheckIcon, ChevronDownIcon, ChevronRightIcon, GripVerticalIcon, ImagePlusIcon, LayersIcon, Loader2Icon, ArrowDownIcon, ArrowUpIcon, PackageIcon, PlusCircle, StarIcon, Trash2Icon, XIcon, } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, ChevronRightIcon, GripVerticalIcon, ImagePlusIcon, InfoIcon, LayersIcon, Loader2Icon, ArrowDownIcon, ArrowUpIcon, PackageIcon, PlusCircle, StarIcon, Trash2Icon, XIcon, } from "lucide-react";
 import { SellFormSkeleton } from "@/features/dashboard/components/dashboard-skeletons";
 
 import { Container } from "@/components/layout/container";
@@ -21,6 +21,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { DescriptionFormatHint } from "@/features/listings/components/description-format-hint";
 import { useAuth } from "@/features/auth/context";
 import { fetchListingCategories, fetchProductTypes, fetchReachPlans, type ProductTypeOption, type ReachPlanOption, } from "@/features/catalog/api";
+import { fetchPublicCommercial } from "@/features/platform/api";
 import { createListing, fetchListing, reorderListingOffers, updateListing } from "@/features/listings/api";
 import { ListingVisibilityPanel } from "@/features/visibility/components/listing-visibility-panel";
 import { SellStepper, type SellStepId, } from "@/features/listings/components/sell-stepper";
@@ -33,6 +34,11 @@ import {
   computeEditModerationChanges,
   type EditBaseline,
 } from "@/features/listings/components/sell-review-utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { uploadMedia } from "@/features/media/api";
 import { ApiError } from "@/lib/api/errors";
 import { routes } from "@/lib/routes";
@@ -44,7 +50,7 @@ const MAX_MEDIA = 5;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_TITLE = 80;
 const MAX_DESC = 5000;
-const MIN_PRICE_CENTS = 150;
+const DEFAULT_MIN_PRICE_CENTS = 150;
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const LEVEL_LABELS = [
   "Categoria",
@@ -142,11 +148,11 @@ type OfferDraft = {
   active: boolean;
 };
 
-function parsePriceToCents(raw: string): number | null {
+function parsePriceToCents(raw: string, minListingCents = DEFAULT_MIN_PRICE_CENTS): number | null {
   const digits = raw.replace(/\D/g, "");
   if (!digits) return null;
   const cents = Number(digits);
-  if (!Number.isInteger(cents) || cents < MIN_PRICE_CENTS || cents > 50_000_000) {
+  if (!Number.isInteger(cents) || cents < minListingCents || cents > 50_000_000) {
     return null;
   }
   return cents;
@@ -234,14 +240,16 @@ function PriceInput({
   onChange,
   id,
   className,
+  minCents = DEFAULT_MIN_PRICE_CENTS,
 }: {
   value: string;
   onChange: (value: string) => void;
   id?: string;
   className?: string;
+  minCents?: number;
 }) {
   const cents = value ? Number(value.replace(/\D/g, "")) || 0 : 0;
-  const belowMin = value.length > 0 && cents < MIN_PRICE_CENTS;
+  const belowMin = value.length > 0 && cents < minCents;
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -268,7 +276,7 @@ function PriceInput({
       </div>
       {belowMin ? (
         <p className="text-xs text-destructive">
-          Mínimo {formatBrl(MIN_PRICE_CENTS)}
+          Mínimo {formatBrl(minCents)}
         </p>
       ) : null}
     </div>
@@ -329,6 +337,7 @@ export function SellPageContent({
   const [productType, setProductType] = useState<ListingProductType | "">("");
   const [reachPlanId, setReachPlanId] = useState<string>("");
   const [reachPlans, setReachPlans] = useState<ReachPlanOption[]>(REACH_FALLBACK);
+  const [minListingCents, setMinListingCents] = useState(DEFAULT_MIN_PRICE_CENTS);
 
   const [adKind, setAdKind] = useState<AdKind>("simple");
   const [price, setPrice] = useState("");
@@ -439,6 +448,17 @@ export function SellPageContent({
         const recommended = plans.find((p) => p.recommended);
         return recommended?.id ?? plans[0]?.id ?? "";
       });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchPublicCommercial().then((commercial) => {
+      if (cancelled) return;
+      setMinListingCents(commercial.minListingCents);
     });
     return () => {
       cancelled = true;
@@ -643,7 +663,7 @@ export function SellPageContent({
     };
   }, [categoryIsLeaf, selectedCategoryId, selectedCategory]);
 
-  const priceCents = parsePriceToCents(price);
+  const priceCents = parsePriceToCents(price, minListingCents);
 
   const reviewInput = useMemo(
     () => ({
@@ -665,6 +685,7 @@ export function SellPageContent({
       coverId,
       isEdit,
       editBaseline,
+      minListingCents,
       seller: {
         id: user?.id ?? "preview-seller",
         name: user?.name ?? null,
@@ -690,6 +711,7 @@ export function SellPageContent({
       coverId,
       isEdit,
       editBaseline,
+      minListingCents,
       user,
     ],
   );
@@ -760,8 +782,8 @@ export function SellPageContent({
 
   function validateOffers(): string | null {
     if (adKind === "simple") {
-      if (parsePriceToCents(price) == null) {
-        return `Informe um preço válido (mín. ${formatBrl(MIN_PRICE_CENTS)}).`;
+      if (parsePriceToCents(price, minListingCents) == null) {
+        return `Informe um preço válido (mín. ${formatBrl(minListingCents)}).`;
       }
       if (delivery === "manual") {
         const qty = Number(stock);
@@ -786,8 +808,8 @@ export function SellPageContent({
       if (offer.title.trim().length > MAX_TITLE) {
         return `Oferta ${i + 1}: título muito longo.`;
       }
-      if (parsePriceToCents(offer.price) == null) {
-        return `Oferta ${i + 1}: preço inválido (mín. ${formatBrl(MIN_PRICE_CENTS)}).`;
+      if (parsePriceToCents(offer.price, minListingCents) == null) {
+        return `Oferta ${i + 1}: preço inválido (mín. ${formatBrl(minListingCents)}).`;
       }
       if (offerStockQty(offer) < 1) {
         return offer.delivery === "auto"
@@ -1258,7 +1280,7 @@ export function SellPageContent({
               </div>
 
               <p className="text-xs text-muted-foreground">
-                Preço mín: {formatBrl(MIN_PRICE_CENTS)}
+                Preço mín: {formatBrl(minListingCents)}
                 {adKind === "dynamic"
                   ? " · Máx. 30 ofertas · Título: 3–80 caracteres"
                   : null}
@@ -1276,7 +1298,11 @@ export function SellPageContent({
                   >
                     <div className="flex min-w-0 flex-col gap-1.5">
                       <FieldLabel>Preço</FieldLabel>
-                      <PriceInput value={price} onChange={setPrice} />
+                      <PriceInput
+                        value={price}
+                        onChange={setPrice}
+                        minCents={minListingCents}
+                      />
                     </div>
                     {delivery === "manual" ? (
                       <div className="flex flex-col gap-1.5">
@@ -1514,6 +1540,7 @@ export function SellPageContent({
                                       ),
                                     )
                                   }
+                                  minCents={minListingCents}
                                 />
                               </div>
                               {offer.delivery === "manual" ? (
@@ -1802,7 +1829,23 @@ function ReachPlanCard({
       ) : null}
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold">{plan.title}</p>
+          <p className="inline-flex items-center gap-1 text-sm font-semibold">
+            {plan.title}
+            <Tooltip>
+              <TooltipTrigger
+                delay={120}
+                render={<span />}
+                className="inline-flex size-4 items-center justify-center rounded-sm outline-none"
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Detalhe da taxa"
+              >
+                <InfoIcon className="size-3.5 text-muted-foreground" aria-hidden />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[16rem] text-pretty">
+                Descontada do valor da venda quando alguém comprar.
+              </TooltipContent>
+            </Tooltip>
+          </p>
           <p className="mt-0.5 text-sm font-medium text-primary">
             {plan.feePercent}% por venda
           </p>

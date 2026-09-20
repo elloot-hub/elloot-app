@@ -25,6 +25,8 @@ export const routes = {
   dashboardFavorites: "/dashboard/favorites",
   dashboardListings: "/dashboard/listings",
   dashboardListingEdit: (id: string) => `/dashboard/listings/${id}/edit` as const,
+  dashboardListingMarketing: (id: string) =>
+    `/dashboard/listings/${id}/marketing` as const,
   dashboardSales: "/dashboard/sales",
   dashboardMetrics: "/dashboard/metrics",
   dashboardMetricsTab: (
