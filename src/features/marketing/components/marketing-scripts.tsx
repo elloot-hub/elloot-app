@@ -416,11 +416,7 @@ export async function trackMarketingEvent(event: TrackableListingEvent) {
         if (pixelId) window.fbq("init", pixelId);
       }
     }
-    fireEvents(resolved, {
-      ...event,
-      currency:
-        "currency" in event && event.currency ? event.currency : "BRL",
-    });
+    fireEvents(resolved, event);
   } catch {
     /* ignore */
   }
